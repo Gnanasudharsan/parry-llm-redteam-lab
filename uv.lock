@@ -780,6 +780,9 @@ name = "parry"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "anyio" },
+    { name = "httpx" },
+    { name = "mcp" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "typer" },
@@ -795,17 +798,18 @@ dev = [
 ]
 lab = [
     { name = "fastapi" },
-    { name = "httpx" },
     { name = "langchain-core" },
     { name = "langchain-ollama" },
     { name = "langgraph" },
-    { name = "mcp" },
     { name = "numpy" },
     { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio", specifier = ">=4" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "mcp", specifier = ">=2.3" },
     { name = "pydantic", specifier = ">=2.14,<3" },
     { name = "pyyaml", specifier = ">=6.0.4" },
     { name = "typer", specifier = ">=0.29" },
@@ -821,11 +825,9 @@ dev = [
 ]
 lab = [
     { name = "fastapi", specifier = ">=0.165" },
-    { name = "httpx", specifier = ">=0.28.1" },
     { name = "langchain-core", specifier = ">=1.8.4" },
     { name = "langchain-ollama", specifier = ">=1.2" },
     { name = "langgraph", specifier = ">=1.2.24" },
-    { name = "mcp", specifier = ">=2.3" },
     { name = "numpy", specifier = ">=2.5" },
     { name = "uvicorn", specifier = ">=0.54" },
 ]

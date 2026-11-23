@@ -15,6 +15,9 @@ classifiers = [
     "Topic :: Security",
 ]
 dependencies = [
+    "anyio>=4",
+    "httpx>=0.28.1",
+    "mcp>=2.3",
     "pydantic>=2.14,<3",
     "pyyaml>=6.0.4",
     "typer>=0.29",
@@ -33,11 +36,9 @@ dev = [
 ]
 lab = [
     "fastapi>=0.165",
-    "httpx>=0.28.1",
     "langchain-core>=1.8.4",
     "langchain-ollama>=1.2",
     "langgraph>=1.2.24",
-    "mcp>=2.3",
     "numpy>=2.5",
     "uvicorn>=0.54",
 ]
