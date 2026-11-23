@@ -56,7 +56,7 @@ latency/cost overhead · judge accuracy vs human labels · OWASP/ATLAS coverage.
 
 ## Phases
 0 Foundation ✅ · 1 ✅ Vulnerable targets + hardened twins, canaries, mock exfil, 40+ benign tasks per
-target · 2 Attack engine, families (direct/indirect injection, MCP tool poisoning, prompt extraction,
+target · 2 ✅ Attack engine, families (direct/indirect injection, MCP tool poisoning, prompt extraction,
 data leakage, excessive agency, multi-turn, encodings, output handling), judges + 200-label judge set,
 `parry scan`/`parry report`, mapping · 3 Defense matrix, Pareto chart, baseline scanner comparison ·
 4 Classifier (licensed data, held-out families, calibrated threshold, HF Hub model card) ·
@@ -68,6 +68,13 @@ Inter Tight + JetBrains Mono; WCAG 2.2 AA; no gradients, no generic card grids, 
 PyPI, blog post, v1.0.0 release.
 
 ## Notes
+- Phase 2: `make scan` -> runs/<id>/ (trials.jsonl, summary.json, report.md/html). Commit code
+  before a reported run (run.json records git_commit + git_dirty). Judge labels pending in
+  datasets/judge-labels/phase2-sample.jsonl (`parry judge label`, then `parry judge eval`).
+- Pre-commit mypy hook checks the whole tree; for split commits use SKIP=mypy on intermediate
+  commits and run `uv run mypy` before the last one.
+- Known gaps: LiteLLM and MCP stdio adapters; OWASP LLM04/LLM10 not covered; canary-only
+  prompt-extraction judging misses redacted-but-verbatim prompts; benign check inbox-jordan.
 - Lab: `make targets-up` needs `ollama serve` on the host (qwen2.5:7b-instruct, nomic-embed-text).
   Targets: vuln/hard-rag 8101/8102, vuln/hard-agent 8111/8112, vuln/hard-mcp 8121/8122 (/mcp),
   mockweb 8199. Admin header X-Lab-Token (default parry-lab-admin). See docs/lab.md.

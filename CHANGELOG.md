@@ -5,6 +5,27 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [phase-2] - 2026-11-23
+
+### Added
+- Attack engine: YAML templates expanded with seed-derived nonces; 9 families, 8 channels,
+  84 cases; obfuscation transforms (base64, ROT13, leetspeak, word split).
+- Channels: direct, multi-turn, RAG review documents, web pages (attacker and first-party
+  hosts), agent emails and files, MCP notes, third-party tool descriptions, direct MCP calls.
+- Judges: decoding leak judge (plain, spaced, reversed, base64, hex, ROT13), lab-evidence judges
+  for tool calls and exfiltration, LLM judge for misinformation, success vs attempt, delivery
+  confirmation for indirect channels.
+- `parry scan`, `parry report` (Markdown, HTML, JSON), `parry attacks list`,
+  `parry judge sample | label | eval`.
+- Adapters: HTTP chat, OpenAI-compatible, MCP streamable HTTP, LangGraph in-process; lab client.
+- MITRE ATLAS 5.6.0 techniques (verified against atlas-data v2026.10); coverage table.
+- Lab agent: third-party tool install endpoint; hardened profile pins tool manifests by hash.
+- Results: `docs/results/phase2/`; 200-item judge labeling sample.
+- ADR 0004, docs/attacks.md.
+
+### Changed
+- Canary derivation moved to `parry.canary`; run metadata records commit and dirty state.
+
 ## [phase-1] - 2026-11-23
 
 ### Added
