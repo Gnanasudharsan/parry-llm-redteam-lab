@@ -1,0 +1,40 @@
+# Python / tooling
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+
+# Secrets (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# Local configs and run outputs
+parry.yaml
+reports/
+runs/
+mlruns/
+mlartifacts/
+.langfuse/
+
+# Model weights and large data (never commit)
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.gguf
+*.ckpt
+classifier/checkpoints/
+classifier/outputs/
+datasets/raw/
+
+.DS_Store
