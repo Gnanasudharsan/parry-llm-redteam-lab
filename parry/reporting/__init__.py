@@ -1,1 +1,1 @@
-"""Report writers: HTML, JSON, SARIF. Phase 2 and 5."""
+"""Report writers: Markdown, HTML and JSON (SARIF arrives with the GitHub Action in Phase 5)."""

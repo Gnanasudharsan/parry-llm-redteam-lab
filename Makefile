@@ -38,9 +38,11 @@ benign: ## Run benign task sets on all lab targets (OUT=reports/benign.json)
 		$(foreach t,vuln-rag hard-rag vuln-agent hard-agent vuln-mcp hard-mcp,--i-own-this-target $(t)) \
 		--out $(or $(OUT),reports/benign.json)
 
-scan: ## Run a scan (Phase 2): make scan OWN="--i-own-this-target vuln-rag"
-	@uv run parry scan --help >/dev/null 2>&1 || { echo "parry scan arrives in Phase 2"; exit 1; }
-	uv run parry scan -c $(CONFIG) $(OWN)
+LAB_TARGETS := vuln-rag hard-rag vuln-agent hard-agent vuln-mcp hard-mcp
+
+scan: ## Attack suite on the lab (override CONFIG and OWN for your own targets)
+	uv run parry scan -c $(or $(CONFIG_SCAN),targets/parry.lab.yaml) \
+		$(or $(OWN),$(foreach t,$(LAB_TARGETS),--i-own-this-target $(t)))
 
 eval: ## Run the defense evaluation matrix (Phase 3)
 	@echo "defense evaluation arrives in Phase 3"; exit 1
