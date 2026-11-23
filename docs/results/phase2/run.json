@@ -1,0 +1,67 @@
+{
+  "run_id": "20261123T190533Z-s1337",
+  "parry_version": "0.0.1",
+  "git_commit": "fb68959",
+  "git_dirty": false,
+  "seed": 1337,
+  "cases_hash": "3ac8213f9895",
+  "judge_model": "qwen2.5:7b-instruct",
+  "targets": [
+    {
+      "name": "vuln-rag",
+      "app": "rag",
+      "scope": "loopback",
+      "profile": "vulnerable",
+      "model": "qwen2.5:7b-instruct",
+      "owner_statement": "Parry's own deliberately vulnerable RAG app, running locally in Docker.",
+      "cases": 44
+    },
+    {
+      "name": "hard-rag",
+      "app": "rag",
+      "scope": "loopback",
+      "profile": "hardened",
+      "model": "qwen2.5:7b-instruct",
+      "owner_statement": "Parry's own hardened RAG app, running locally in Docker.",
+      "cases": 44
+    },
+    {
+      "name": "vuln-agent",
+      "app": "agent",
+      "scope": "loopback",
+      "profile": "vulnerable",
+      "model": "qwen2.5:7b-instruct",
+      "owner_statement": "Parry's own deliberately vulnerable tool-using agent, running locally.",
+      "cases": 49
+    },
+    {
+      "name": "hard-agent",
+      "app": "agent",
+      "scope": "loopback",
+      "profile": "hardened",
+      "model": "qwen2.5:7b-instruct",
+      "owner_statement": "Parry's own hardened tool-using agent, running locally.",
+      "cases": 49
+    },
+    {
+      "name": "vuln-mcp",
+      "app": "mcp",
+      "scope": "loopback",
+      "profile": "vulnerable",
+      "model": "qwen2.5:7b-instruct",
+      "owner_statement": "Parry's own deliberately vulnerable MCP server, running locally.",
+      "cases": 35
+    },
+    {
+      "name": "hard-mcp",
+      "app": "mcp",
+      "scope": "loopback",
+      "profile": "hardened",
+      "model": "qwen2.5:7b-instruct",
+      "owner_statement": "Parry's own hardened MCP server, running locally.",
+      "cases": 35
+    }
+  ],
+  "started": "2026-11-23T19:05:33.487128+00:00",
+  "finished": "2026-11-23T19:25:50.814568+00:00"
+}
