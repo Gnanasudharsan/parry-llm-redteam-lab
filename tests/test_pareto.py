@@ -24,6 +24,8 @@ def _cell(asr: float, util: float) -> dict[str, Any]:
         "latency_median_s": 1.0,
         "guard_ms_per_request": 5.0,
         "guard_tokens_per_request": 0,
+        "git_commit": "abc1234",
+        "validator_version": "not used",
     }
 
 
