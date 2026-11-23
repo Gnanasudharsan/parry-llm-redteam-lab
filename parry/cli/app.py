@@ -327,8 +327,13 @@ def baseline_garak(
             typer.echo(f"skip {a.target.name}: garak's REST generator needs a chat endpoint")
             continue
         report = garak.run(a.target, out, cfg.seed)
-        summary[a.target.name] = garak.summarize(report)
-        for row in summary[a.target.name].values():
+        summary[a.target.name] = {"garak": garak.summarize(report)}
+        if a.target.lab:
+            from parry.lab import LabClient
+
+            secrets = LabClient(cfg, a.target).secrets().as_dict()
+            summary[a.target.name]["parry_rejudge"] = garak.rejudge(report, secrets)
+        for row in summary[a.target.name]["garak"].values():
             typer.echo(
                 f"{a.target.name} {row['probe']} {wilson_interval(row['hits'], row['total'])}"
             )
