@@ -14,7 +14,15 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 
 from targets.agent.graph import build_graph
-from targets.agent.tools import Email, Toolbox, World, initial_world, snapshot
+from targets.agent.tools import (
+    PINNED_HASHES,
+    Email,
+    Toolbox,
+    World,
+    initial_world,
+    manifest_hash,
+    snapshot,
+)
 from targets.lab import egress
 from targets.lab.admin import admin_router, require_token
 from targets.lab.canary import LabSecrets, secrets_for
@@ -50,6 +58,11 @@ class PlantEmail(BaseModel):
     sender: str
     subject: str
     body: str
+
+
+class InstallPlugin(BaseModel):
+    name: str = Field(pattern=r"^[a-z][a-z0-9_]{0,40}$")
+    description: str = Field(max_length=4000)
 
 
 class PlantFile(BaseModel):
@@ -89,16 +102,18 @@ def create_app(
     llm = model or chat_model()
     log = EventLog()
     state: dict[str, World] = {"world": initial_world(secrets)}
+    plugins: dict[str, str] = {}
     h = profile.hardening
 
     def graph() -> Any:
-        tools = Toolbox(state["world"], profile, log, secrets).tools()
+        tools = Toolbox(state["world"], profile, log, secrets, plugins).tools()
         return build_graph(llm, tools, system_prompt(profile, secrets))
 
     app = FastAPI(title=f"Harbor Ops agent ({profile.name})", docs_url=None, redoc_url=None)
 
     def reset() -> None:
         state["world"] = initial_world(secrets)
+        plugins.clear()
 
     app.include_router(
         admin_router(
@@ -117,6 +132,15 @@ def create_app(
         new = Email(f"e{len(world.inbox) + 1}", email.sender, email.subject, email.body)
         world.inbox.append(new)
         return {"status": "planted", "id": new.id}
+
+    @app.post("/_lab/plugins", dependencies=[Depends(require_token)])
+    def install_plugin(p: InstallPlugin) -> dict[str, str]:
+        """Simulates connecting a third-party MCP server and listing its tool."""
+        if h.tool_policy and manifest_hash(p.name, p.description) not in PINNED_HASHES:
+            log.record("tool_blocked", f"plugin:{p.name}", args={}, why="manifest not pinned")
+            return {"status": "rejected", "why": "tool manifest is not on the pinned allowlist"}
+        plugins[p.name] = p.description
+        return {"status": "installed"}
 
     @app.post("/_lab/files", dependencies=[Depends(require_token)])
     def plant_file(f: PlantFile) -> dict[str, str]:

@@ -19,8 +19,9 @@ class ScriptedModel(BaseChatModel):
     script: list[AIMessage] = Field(default_factory=list)
     seen: list[list[BaseMessage]] = Field(default_factory=list)
 
-    def _generate(self, messages: list[BaseMessage], stop: Any = None,
-                  run_manager: Any = None, **kwargs: Any) -> ChatResult:  # fmt: skip
+    def _generate(
+        self, messages: list[BaseMessage], stop: Any = None, run_manager: Any = None, **kwargs: Any
+    ) -> ChatResult:
         self.seen.append(list(messages))
         msg = self.script.pop(0) if self.script else AIMessage("done")
         return ChatResult(generations=[ChatGeneration(message=msg)])
