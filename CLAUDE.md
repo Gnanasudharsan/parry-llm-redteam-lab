@@ -55,7 +55,7 @@ ASR per family/channel/target/defense with CIs · FPR on benign set · utility r
 latency/cost overhead · judge accuracy vs human labels · OWASP/ATLAS coverage.
 
 ## Phases
-0 Foundation ✅ · 1 Vulnerable targets + hardened twins, canaries, mock exfil, 40+ benign tasks per
+0 Foundation ✅ · 1 ✅ Vulnerable targets + hardened twins, canaries, mock exfil, 40+ benign tasks per
 target · 2 Attack engine, families (direct/indirect injection, MCP tool poisoning, prompt extraction,
 data leakage, excessive agency, multi-turn, encodings, output handling), judges + 200-label judge set,
 `parry scan`/`parry report`, mapping · 3 Defense matrix, Pareto chart, baseline scanner comparison ·
@@ -68,6 +68,10 @@ Inter Tight + JetBrains Mono; WCAG 2.2 AA; no gradients, no generic card grids, 
 PyPI, blog post, v1.0.0 release.
 
 ## Notes
+- Lab: `make targets-up` needs `ollama serve` on the host (qwen2.5:7b-instruct, nomic-embed-text).
+  Targets: vuln/hard-rag 8101/8102, vuln/hard-agent 8111/8112, vuln/hard-mcp 8121/8122 (/mcp),
+  mockweb 8199. Admin header X-Lab-Token (default parry-lab-admin). See docs/lab.md.
+- Known: benign check `inbox-jordan` is too strict (requires read_email); fix in Phase 2.
 - OWASP IDs are the 2025 edition. ATLAS table is empty until Phase 2, when each ID is verified
   against the current ATLAS release.
 - Owner's git email is stored with angle brackets in global config; git strips them in commits.
