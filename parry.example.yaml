@@ -1,0 +1,20 @@
+# Copy to parry.yaml. Listing a target here is not authorization: each run must also
+# name it with --i-own-this-target <name>. Keys are referenced by env var name only.
+version: 1
+seed: 1337
+targets:
+  - name: vuln-rag
+    kind: http
+    url: http://localhost:8101/chat
+    owner_statement: Parry's own deliberately vulnerable RAG app, running locally.
+
+  - name: local-ollama
+    kind: openai_compat
+    url: http://localhost:11434/v1
+    model: llama3.2
+    owner_statement: A local Ollama model on my own machine.
+
+  - name: vuln-mcp
+    kind: mcp_stdio
+    command: ["uv", "run", "python", "-m", "targets.vuln_mcp"]
+    owner_statement: Parry's own deliberately vulnerable MCP server.
