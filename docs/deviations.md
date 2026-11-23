@@ -44,6 +44,9 @@ never mixed into reported numbers.
   from `991d62a`.
 - **Fix:** test-then-commit commands now run with `set -o pipefail`. The pre-commit hook
   still runs ruff and mypy; CI runs the full test suite on every push.
+- **Same class, also fixed:** commit commands no longer discard output (`>/dev/null 2>&1`);
+  hook and commit errors stay visible and the commit's exit code is checked before a commit
+  is reported as done.
 
 ## Checked, no rerun needed: OpenAI-compatible adapter seed (Phase 3)
 
