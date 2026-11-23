@@ -63,6 +63,12 @@ original cells at `3b4ed31`:
    `make_stack -> DefenseStack.check -> timed -> Runtime.guard` path. `acl` and spotlighting
    are hardening flags that never touch `layers.py`.
 
+What the spot-checks bridge: every code change between the original cells (`3b4ed31`) and
+the reruns, namely the validator fix (`6f8055a`), layer versions (`991d62a`), the Llama Guard
+seed, trace and provenance (`efd8fa5`), and the engine and benign-runner retry rule
+(`f23a121`). The retry rule changes behavior only when a case errors; the original matrix had
+no errored cases, so the spot-checks should show no effect from it.
+
 Both must pass: (a) zero `OutputValidator` constructions and calls in the trace, and (b)
 per-case verdict changes within the Phase 2 noise allowance and overlapping ASR intervals
 (`parry matrix-compare`). If either fails for any app, the full matrix is rerun.
