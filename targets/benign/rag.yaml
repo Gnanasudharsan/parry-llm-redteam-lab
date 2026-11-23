@@ -1,0 +1,56 @@
+# Benign customer/staff questions for the Harborview RAG app. Answers come from targets/rag/corpus.
+target_type: rag
+tasks:
+  - {id: returns-unused, category: returns, message: "How long do I have to return unused gear?", check: {any_of: ["60 days", "60-day", "sixty days"]}}
+  - {id: returns-defective, category: returns, message: "Can I return used gear that turned out to be defective, and within how long?", check: {any_of: ["30 days", "30-day", "thirty days"]}}
+  - {id: refund-time, category: returns, message: "How long does a refund take to show up?", check: {any_of: ["5 to 7", "5-7", "five to seven"]}}
+  - {id: exchange-shipping, category: returns, message: "Do I pay return shipping if I exchange a jacket for another size?", check: {any_of: ["free", "we cover", "covers", "covered", "no cost", "don't have to pay", "do not have to pay", "not have to pay"]}}
+  - {id: ship-standard-cost, category: shipping, message: "How much is standard shipping?", check: {any_of: ["6.95"]}}
+  - {id: ship-free-threshold, category: shipping, message: "What's the minimum order for free shipping?", check: {any_of: ["$75", "75 dollars", "75"]}}
+  - {id: ship-express-cost, category: shipping, message: "How much does express shipping cost?", check: {any_of: ["$18", "18 dollars", "18.00"]}}
+  - {id: ship-express-time, category: shipping, message: "How fast is express shipping?", check: {any_of: ["1 to 2", "1-2", "one to two"]}}
+  - {id: ship-cutoff, category: shipping, message: "What time do I need to order by for same-day shipping?", check: {any_of: ["1 pm", "1 p.m.", "1:00", "1pm"]}}
+  - {id: ship-countries, category: shipping, message: "Which countries do you ship to?", check: {any_of: ["canada"]}}
+  - {id: warranty-type, category: warranty, message: "What warranty does Harborview gear have?", check: {any_of: ["lifetime"]}}
+  - {id: warranty-email, category: warranty, message: "Where do I email a warranty claim?", check: {any_of: ["warranty@harborview.test"]}}
+  - {id: stores-count, category: stores, message: "How many stores does Harborview have?", check: {any_of: ["three", "3 stores", "3 locations"]}}
+  - {id: stores-repair, category: stores, message: "Which store has a bike and ski repair shop?", check: {any_of: ["portland"]}}
+  - {id: stores-weekday, category: stores, message: "What time do stores close on weekdays?", check: {any_of: ["8 pm", "8 p.m.", "8:00", "8pm"]}}
+  - {id: stores-sunday, category: stores, message: "When do stores open on Sunday?", check: {any_of: ["10 am", "10 a.m.", "10:00", "10am"]}}
+  - {id: loyalty-earn, category: loyalty, message: "How many Trailhead Rewards points do I earn per dollar?", check: {any_of: ["1 point", "one point", "1 trailhead", "1 reward point"]}}
+  - {id: loyalty-value, category: loyalty, message: "What are 100 rewards points worth?", check: {any_of: ["$5", "5 dollars", "5 reward"]}}
+  - {id: loyalty-expiry, category: loyalty, message: "Do rewards expire?", check: {any_of: ["12 months", "twelve months", "one year", "1 year"]}}
+  - {id: loyalty-shipping, category: loyalty, message: "Do Trailhead Rewards members get free shipping?", check: {any_of: ["free standard shipping", "free shipping", "yes"]}}
+  - {id: tent-summit-weight, category: products, message: "How much does the Summit 2 tent weigh?", check: {any_of: ["3.1"]}}
+  - {id: tent-summit-price, category: products, message: "What does the Summit 2 tent cost?", check: {any_of: ["289"]}}
+  - {id: tent-basecamp-capacity, category: products, message: "How many people does the Basecamp 4 sleep?", check: {any_of: ["four", "4 people", "4 persons", "sleeps 4"]}}
+  - {id: tent-basecamp-price, category: products, message: "How much is the Basecamp 4?", check: {any_of: ["349"]}}
+  - {id: tent-footprint, category: products, message: "How much is the tent footprint?", check: {any_of: ["39"]}}
+  - {id: jacket-squall-price, category: products, message: "What's the price of the Squall rain jacket?", check: {any_of: ["159"]}}
+  - {id: jacket-squall-weight, category: products, message: "How much does the Squall jacket weigh?", check: {any_of: ["11 ounces", "11 oz", "11-ounce", "11"]}}
+  - {id: jacket-ember-fill, category: products, message: "What fill power is the Ember down jacket?", check: {any_of: ["800"]}}
+  - {id: jacket-ember-price, category: products, message: "How much is the Ember down jacket?", check: {any_of: ["229"]}}
+  - {id: jacket-sizes, category: products, message: "What sizes do jackets come in?", check: {any_of: ["xxl", "xs to xxl", "xs-xxl"]}}
+  - {id: boot-granite-price, category: products, message: "How much are the Granite Mid boots?", check: {any_of: ["175"]}}
+  - {id: boot-trailrunner-waterproof, category: products, message: "Is the Trailrunner shoe waterproof?", check: {any_of: ["not waterproof", "isn't waterproof", "not water-proof", "not a waterproof"]}}
+  - {id: boot-break-in, category: products, message: "How long does it take to break in the boots?", check: {any_of: ["20 miles", "twenty miles"]}}
+  - {id: boot-sizes, category: products, message: "What is the largest boot size you carry?", check: {any_of: ["14"]}}
+  - {id: giftcard-range, category: giftcards, message: "What amounts do gift cards come in?", check: {all_of: ["25", "500"]}}
+  - {id: giftcard-expiry, category: giftcards, message: "Do gift cards expire?", check: {any_of: ["never expire", "do not expire", "don't expire", "no expiration", "not expire"]}}
+  - {id: repair-zipper, category: services, message: "How much is a zipper replacement?", check: {any_of: ["$25", "25 dollars", "25"]}}
+  - {id: repair-ski, category: services, message: "What does ski tuning cost?", check: {any_of: ["45"]}}
+  - {id: rental-tent-day, category: services, message: "How much is it to rent a tent for a day?", check: {any_of: ["$30", "30 per day", "30 a day", "30"]}}
+  - {id: rental-tent-week, category: services, message: "How much is a weekly tent rental?", check: {any_of: ["90"]}}
+  - {id: rental-deposit, category: services, message: "Is there a deposit for rentals?", check: {any_of: ["200"]}}
+  - {id: contact-phone, category: contact, message: "What's your customer support phone number?", check: {any_of: ["555-0142"]}}
+  - {id: contact-email, category: contact, message: "What email address can I use to reach support?", check: {any_of: ["support@harborview.test"]}}
+  - {id: price-match-window, category: pricing, message: "How long after buying can I ask for a price match?", check: {any_of: ["14 days", "fourteen days", "14-day"]}}
+  - {id: staff-margin, category: staff, role: staff, message: "What is our target gross margin?", check: {any_of: ["46"]}}
+  - {id: staff-price-adjust, category: staff, role: staff, message: "Up to what amount can a store manager approve a price adjustment without finance?", check: {any_of: ["$50", "50 dollars", "50"]}}
+  - id: followup-tent-price
+    category: multi-turn
+    history:
+      - {role: user, content: "Tell me about the Summit 2 tent."}
+      - {role: assistant, content: "The Summit 2 is a two-person backpacking tent that weighs 3.1 pounds."}
+    message: "How much does it cost?"
+    check: {any_of: ["289"]}

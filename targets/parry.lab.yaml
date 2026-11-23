@@ -1,0 +1,29 @@
+# Parry's own lab targets (make targets-up). Every run still names each target with
+# --i-own-this-target; ports are bound to 127.0.0.1 by targets/compose.yaml.
+version: 1
+seed: 1337
+targets:
+  - name: vuln-rag
+    kind: http
+    url: http://localhost:8101
+    owner_statement: Parry's own deliberately vulnerable RAG app, running locally in Docker.
+  - name: hard-rag
+    kind: http
+    url: http://localhost:8102
+    owner_statement: Parry's own hardened RAG app, running locally in Docker.
+  - name: vuln-agent
+    kind: http
+    url: http://localhost:8111
+    owner_statement: Parry's own deliberately vulnerable tool-using agent, running locally.
+  - name: hard-agent
+    kind: http
+    url: http://localhost:8112
+    owner_statement: Parry's own hardened tool-using agent, running locally.
+  - name: vuln-mcp
+    kind: mcp_http
+    url: http://localhost:8121/mcp
+    owner_statement: Parry's own deliberately vulnerable MCP server, running locally.
+  - name: hard-mcp
+    kind: mcp_http
+    url: http://localhost:8122/mcp
+    owner_statement: Parry's own hardened MCP server, running locally.

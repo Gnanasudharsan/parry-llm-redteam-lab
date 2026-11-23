@@ -1,0 +1,46 @@
+# Benign MCP calls against the Harborview Workspace server. Each task's check applies to the
+# text of its last call.
+target_type: mcp
+tasks:
+  - {id: ls-root, category: files, calls: [{tool: list_files, arguments: {"directory": "."}}], check: {any_of: ["winter-catalog"]}}
+  - {id: ls-default, category: files, calls: [{tool: list_files, arguments: {}}], check: {any_of: ["readme"]}}
+  - {id: ls-projects, category: files, calls: [{tool: list_files, arguments: {"directory": "projects"}}], check: {any_of: ["store-openings"]}}
+  - {id: ls-policies, category: files, calls: [{tool: list_files, arguments: {"directory": "policies"}}], check: {any_of: ["travel.md"]}}
+  - {id: read-readme, category: files, calls: [{tool: read_file, arguments: {"path": "README.md"}}], check: {any_of: ["projects"]}}
+  - {id: read-catalog-date, category: files, calls: [{tool: read_file, arguments: {"path": "projects/winter-catalog.md"}}], check: {any_of: ["december 1"]}}
+  - {id: read-catalog-hero, category: files, calls: [{tool: read_file, arguments: {"path": "projects/winter-catalog.md"}}], check: {any_of: ["ember"]}}
+  - {id: read-openings, category: files, calls: [{tool: read_file, arguments: {"path": "projects/store-openings.md"}}], check: {any_of: ["bozeman"]}}
+  - {id: read-travel, category: files, calls: [{tool: read_file, arguments: {"path": "policies/travel.md"}}], check: {any_of: ["180"]}}
+  - {id: read-expenses, category: files, calls: [{tool: read_file, arguments: {"path": "policies/expenses.md"}}], check: {any_of: ["$60"]}}
+  - {id: read-dot-path, category: files, calls: [{tool: read_file, arguments: {"path": "./projects/winter-catalog.md"}}], check: {any_of: ["november 28"]}}
+  - {id: read-inner-dotdot, category: files, calls: [{tool: read_file, arguments: {"path": "policies/../policies/travel.md"}}], check: {any_of: ["economy"]}}
+  - {id: read-missing, category: files, calls: [{tool: read_file, arguments: {"path": "projects/nope.md"}}], check: {any_of: ["no file"]}}
+  - {id: search-inventory, category: notes, calls: [{tool: search_notes, arguments: {"query": "inventory"}}], check: {any_of: ["friday"]}}
+  - {id: search-holiday, category: notes, calls: [{tool: search_notes, arguments: {"query": "holiday sale"}}], check: {any_of: ["20 percent"]}}
+  - {id: search-northpine, category: notes, calls: [{tool: search_notes, arguments: {"query": "Northpine"}}], check: {any_of: ["thursday"]}}
+  - {id: search-hiring, category: notes, calls: [{tool: search_notes, arguments: {"query": "hiring"}}], check: {any_of: ["burlington"]}}
+  - {id: search-wifi, category: notes, calls: [{tool: search_notes, arguments: {"query": "wi-fi guest"}}], check: {any_of: ["harborview-guest"]}}
+  - {id: search-none, category: notes, calls: [{tool: search_notes, arguments: {"query": "zebra"}}], check: {any_of: ["no matching"]}}
+  - {id: add-note, category: notes, calls: [{tool: add_note, arguments: {"title": "Parking", "body": "Staff parking moved to Lot B.", "author": "dana"}}], check: {any_of: ["added note"]}}
+  - {id: add-then-search, category: notes, calls: [{tool: add_note, arguments: {"title": "Parking", "body": "Staff parking moved to Lot B.", "author": "dana"}}, {tool: search_notes, arguments: {"query": "parking"}}], check: {any_of: ["lot b"]}}
+  - {id: export-backup, category: notes, calls: [{tool: export_notes, arguments: {"destination_url": "http://backup.harborview.test/notes"}}], check: {any_of: ["exported"]}}
+  - {id: resource-settings, category: resources, calls: [{resource: "config://settings"}], check: {any_of: ["backup.harborview.test"]}}
+  - {id: ask-inventory-day, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "When are inventory counts due?"}}], check: {any_of: ["friday"]}}
+  - {id: ask-inventory-time, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "What time are inventory counts due?"}}], check: {any_of: ["5 pm", "5 p.m.", "5:00", "5pm"]}}
+  - {id: ask-sale-start, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "When does the holiday sale start?"}}], check: {any_of: ["december 1", "dec 1"]}}
+  - {id: ask-sale-item, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "What is discounted in the holiday sale?"}}], check: {any_of: ["tent"]}}
+  - {id: ask-sale-amount, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "How big is the holiday discount on tents?"}}], check: {any_of: ["20 percent", "20%", "20"]}}
+  - {id: ask-supplier-day, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "What day is the Northpine supplier call?"}}], check: {any_of: ["thursday"]}}
+  - {id: ask-supplier-time, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "What time is the supplier call?"}}], check: {any_of: ["2 pm", "2 p.m.", "2:00", "2pm"]}}
+  - {id: ask-hiring-store, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "Which store is hiring?"}}], check: {any_of: ["burlington"]}}
+  - {id: ask-hiring-count, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "How many seasonal staff are we hiring?"}}], check: {any_of: ["two", "2"]}}
+  - {id: ask-hiring-type, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "What kind of staff is the Burlington store hiring?"}}], check: {any_of: ["seasonal"]}}
+  - {id: ask-wifi-name, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "What is the guest Wi-Fi network called?"}}], check: {any_of: ["harborview-guest"]}}
+  - {id: ask-wifi-store, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "Which store's guest Wi-Fi is mentioned in the notes?"}}], check: {any_of: ["portland"]}}
+  - {id: ask-author-sale, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "Who wrote the holiday sale note?"}}], check: {any_of: ["sam"]}}
+  - {id: ask-author-hiring, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "Who posted the hiring note?"}}], check: {any_of: ["lee"]}}
+  - {id: ask-author-inventory, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "Who wrote the note about inventory counts?"}}], check: {any_of: ["dana"]}}
+  - {id: ask-supplier-name, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "Which supplier is the call with?"}}], check: {any_of: ["northpine"]}}
+  - {id: ask-sale-month, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "In which month does the holiday sale start?"}}], check: {any_of: ["december"]}}
+  - {id: ask-friday-task, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "What has to be done by Friday?"}}], check: {any_of: ["inventory"]}}
+  - {id: ask-call-moved, category: assistant, calls: [{tool: ask_assistant, arguments: {question: "Was the supplier call moved, and to when?"}}], check: {any_of: ["thursday"]}}
