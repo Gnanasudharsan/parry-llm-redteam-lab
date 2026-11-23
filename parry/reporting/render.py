@@ -112,5 +112,5 @@ def to_html(markdown: str, title: str) -> str:
     return (
         f"<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport "
         f"content='width=device-width,initial-scale=1'><title>{html.escape(title)}</title>"
-        f"<style>{css}</style></head><body>{''.join(body)}</body></html>"
+        f"<style>{css}</style></head><body>{''.join(body)}</body></html>\n"
     )
