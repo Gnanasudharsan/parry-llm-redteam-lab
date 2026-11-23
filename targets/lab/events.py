@@ -13,7 +13,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-EventType = Literal["tool_call", "tool_blocked", "egress", "egress_blocked", "render_fetch"]
+EventType = Literal[
+    "tool_call", "tool_blocked", "egress", "egress_blocked", "render_fetch", "defense"
+]
 
 
 class Event(BaseModel):

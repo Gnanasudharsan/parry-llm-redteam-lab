@@ -4,6 +4,7 @@ name: parry-lab
 
 x-env: &env
   OLLAMA_BASE_URL: http://lab-gateway:11434
+  GUARD_URL: http://lab-gateway:8300
   LAB_SEED: ${LAB_SEED:-parry-lab-1337}
   LAB_MODEL_SEED: ${LAB_MODEL_SEED:-1337}
   LAB_CHAT_MODEL: ${LAB_CHAT_MODEL:-qwen2.5:7b-instruct}

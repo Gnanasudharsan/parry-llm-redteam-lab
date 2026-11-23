@@ -12,13 +12,22 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel
 
 from targets.lab.canary import LabSecrets
 from targets.lab.events import Event, EventLog
 from targets.lab.llm import DEFAULT_CHAT_MODEL
-from targets.lab.profile import Profile
+from targets.lab.runtime import Runtime
 
 DEFAULT_ADMIN_TOKEN = "parry-lab-admin"  # noqa: S105 - lab-only, documented, not a real secret
+
+
+class ConfigBody(BaseModel):
+    """PUT /_lab/config: change hardening flags and defense layers on a running app."""
+
+    hardening: dict[str, bool] | None = None
+    defenses: list[str] | None = None
+    restore: bool = False
 
 
 def admin_token() -> str:
@@ -33,7 +42,7 @@ def require_token(x_lab_token: str = Header(default="")) -> None:
 def admin_router(
     *,
     target: str,
-    profile: Profile,
+    runtime: Runtime,
     secrets: LabSecrets,
     log: EventLog,
     reset: Callable[[], None],
@@ -45,7 +54,7 @@ def admin_router(
     def state() -> dict[str, Any]:
         out: dict[str, Any] = {
             "target": target,
-            "profile": profile.model_dump(),
+            **runtime.describe(),
             "secrets": secrets.as_dict(),
             "model": os.environ.get("LAB_CHAT_MODEL", DEFAULT_CHAT_MODEL),
         }
@@ -56,6 +65,16 @@ def admin_router(
     @router.get("/events")
     def events(since: int = 0) -> list[Event]:
         return log.list(since)
+
+    @router.put("/config")
+    def configure(body: ConfigBody) -> dict[str, Any]:
+        if body.restore:
+            runtime.restore()
+        try:
+            runtime.configure(body.hardening, body.defenses)
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return runtime.describe()
 
     @router.post("/reset")
     def do_reset() -> dict[str, str]:

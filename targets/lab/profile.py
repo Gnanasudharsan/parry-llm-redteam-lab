@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-ProfileName = Literal["vulnerable", "hardened"]
+ProfileName = Literal["vulnerable", "hardened", "custom"]  # custom: set at runtime
 
 
 class Hardening(BaseModel):

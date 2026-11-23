@@ -32,7 +32,8 @@ from targets.lab.canary import LabSecrets, secrets_for
 from targets.lab.events import EventLog
 from targets.lab.guard import INSTRUCTION_HIERARCHY, TRUSTED_HOSTS, redact, spotlight
 from targets.lab.llm import DEFAULT_CHAT_MODEL, chat_model
-from targets.lab.profile import Profile, profile_from_env
+from targets.lab.profile import Hardening, Profile, profile_from_env
+from targets.lab.runtime import REFUSAL, Runtime
 
 WORKSPACE = "/workspace"
 
@@ -75,11 +76,15 @@ def initial_notes() -> list[Note]:
 
 
 class Workspace:
-    def __init__(self, profile: Profile, secrets: LabSecrets, log: EventLog) -> None:
-        self.h = profile.hardening
+    def __init__(self, runtime: Runtime, secrets: LabSecrets, log: EventLog) -> None:
+        self.rt = runtime
         self.secrets = secrets
         self.log = log
         self.reset()
+
+    @property
+    def h(self) -> Hardening:
+        return self.rt.h
 
     def reset(self) -> None:
         self.files = initial_files(self.secrets)
@@ -132,8 +137,8 @@ def build_server(
     name = target_name or ("hard-mcp" if profile.name == "hardened" else "vuln-mcp")
     secrets = secrets_for(name)
     log = EventLog()
-    ws = Workspace(profile, secrets, log)
-    h = profile.hardening
+    rt = Runtime(profile, log)
+    ws = Workspace(rt, secrets, log)
     llm_holder: dict[str, BaseChatModel] = {}
 
     def llm() -> BaseChatModel:
@@ -196,7 +201,7 @@ def build_server(
                 log,
                 "POST",
                 destination_url,
-                allowlist=TRUSTED_HOSTS if h.egress_allowlist else None,
+                allowlist=TRUSTED_HOSTS if rt.h.egress_allowlist else None,
                 reason="export_notes",
                 json=payload,
             )
@@ -211,19 +216,28 @@ def build_server(
     def ask_assistant(question: str) -> str:
         """Ask the workspace assistant a question about the team notes."""
         called("ask_assistant", question=question)
+        if rt.guard("input", question, "question"):
+            return REFUSAL
         notes = ws.matching_notes(question) or ws.notes
-        context = "\n".join(ws.render_note(n) for n in notes[:5])
+        notes = [
+            n
+            for n in notes[:5]
+            if not rt.guard("untrusted", f"{n.title}: {n.body}", f"note:{n.id}")
+        ]
+        context = "\n".join(ws.render_note(n) for n in notes)
         reply = llm().invoke(
-            [SystemMessage(_assistant_prompt(profile, secrets, context)), HumanMessage(question)]
+            [SystemMessage(_assistant_prompt(rt.profile, secrets, context)), HumanMessage(question)]
         )
         answer = str(reply.content)
-        return redact(answer, secrets.values()) if h.redact_output else answer
+        if rt.h.redact_output:
+            answer = redact(answer, secrets.values())
+        return REFUSAL if rt.guard("output", answer, "answer") else answer
 
     @server.resource("config://settings", name="settings", mime_type="application/json")
     def settings() -> str:
         """Workspace integration settings."""
         data: dict[str, str] = {"workspace": WORKSPACE, "backup_host": "backup.harborview.test"}
-        if not h.secrets_out_of_prompt:
+        if not rt.h.secrets_out_of_prompt:
             data["payments_api_key"] = secrets.api_key
         return json.dumps(data)
 
@@ -232,7 +246,7 @@ def build_server(
 
     @server.custom_route("/health", methods=["GET"])
     async def health(request: Request) -> Response:
-        return JSONResponse({"status": "ok", "target": name, "profile": profile.name})
+        return JSONResponse({"status": "ok", "target": name, "profile": rt.profile.name})
 
     @server.custom_route("/_lab/state", methods=["GET"])
     async def lab_state(request: Request) -> Response:
@@ -241,7 +255,7 @@ def build_server(
         return JSONResponse(
             {
                 "target": name,
-                "profile": profile.model_dump(),
+                **rt.describe(),
                 "secrets": secrets.as_dict(),
                 "notes": len(ws.notes),
                 "model": os.environ.get("LAB_CHAT_MODEL", DEFAULT_CHAT_MODEL),
@@ -254,6 +268,19 @@ def build_server(
             return JSONResponse({"detail": "lab admin token required"}, status_code=401)
         since = int(request.query_params.get("since", "0"))
         return JSONResponse([e.model_dump() for e in log.list(since)])
+
+    @server.custom_route("/_lab/config", methods=["PUT"])
+    async def lab_config(request: Request) -> Response:
+        if not authorized(request):
+            return JSONResponse({"detail": "lab admin token required"}, status_code=401)
+        body = await request.json()
+        if body.get("restore"):
+            rt.restore()
+        try:
+            rt.configure(body.get("hardening"), body.get("defenses"))
+        except (ValueError, TypeError) as exc:
+            return JSONResponse({"detail": str(exc)}, status_code=400)
+        return JSONResponse(rt.describe())
 
     @server.custom_route("/_lab/reset", methods=["POST"])
     async def lab_reset(request: Request) -> Response:

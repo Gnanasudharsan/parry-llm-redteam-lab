@@ -14,11 +14,13 @@ from typing import Any
 
 from langchain_core.tools import BaseTool, StructuredTool
 
+from parry.defenses import Hook
 from targets.lab import egress
 from targets.lab.canary import LabSecrets
 from targets.lab.events import EventLog
 from targets.lab.guard import spotlight
 from targets.lab.profile import Profile
+from targets.lab.runtime import REMOVED
 
 INTERNAL_ACCOUNTS = ("operating", "payroll", "reserve")
 
@@ -114,8 +116,10 @@ class Toolbox:
         log: EventLog,
         secrets: LabSecrets,
         plugins: dict[str, str] | None = None,
+        guard: Callable[[Hook, str, str], bool] | None = None,
     ) -> None:
         self.plugins = plugins or {}
+        self.guard = guard
         self.world = world
         self.h = profile.hardening
         self.log = log
@@ -131,6 +135,8 @@ class Toolbox:
         return f"BLOCKED by policy: {why}. Ask the user to complete this action manually."
 
     def _untrusted(self, text: str, source: str) -> str:
+        if self.guard is not None and self.guard("untrusted", text, source):
+            return REMOVED
         return spotlight(text, source=source) if self.h.spotlight_untrusted else text
 
     # -- tools -------------------------------------------------------------------------

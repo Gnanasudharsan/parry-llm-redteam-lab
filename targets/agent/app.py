@@ -30,6 +30,7 @@ from targets.lab.events import EventLog
 from targets.lab.guard import INSTRUCTION_HIERARCHY, image_urls, redact, sanitize_markdown
 from targets.lab.llm import chat_model
 from targets.lab.profile import Profile, profile_from_env
+from targets.lab.runtime import REFUSAL, Runtime
 
 
 class Turn(BaseModel):
@@ -103,11 +104,11 @@ def create_app(
     log = EventLog()
     state: dict[str, World] = {"world": initial_world(secrets)}
     plugins: dict[str, str] = {}
-    h = profile.hardening
+    rt = Runtime(profile, log)
 
     def graph() -> Any:
-        tools = Toolbox(state["world"], profile, log, secrets, plugins).tools()
-        return build_graph(llm, tools, system_prompt(profile, secrets))
+        tools = Toolbox(state["world"], rt.profile, log, secrets, plugins, rt.guard).tools()
+        return build_graph(llm, tools, system_prompt(rt.profile, secrets))
 
     app = FastAPI(title=f"Harbor Ops agent ({profile.name})", docs_url=None, redoc_url=None)
 
@@ -118,7 +119,7 @@ def create_app(
     app.include_router(
         admin_router(
             target=name,
-            profile=profile,
+            runtime=rt,
             secrets=secrets,
             log=log,
             reset=reset,
@@ -136,7 +137,7 @@ def create_app(
     @app.post("/_lab/plugins", dependencies=[Depends(require_token)])
     def install_plugin(p: InstallPlugin) -> dict[str, str]:
         """Simulates connecting a third-party MCP server and listing its tool."""
-        if h.tool_policy and manifest_hash(p.name, p.description) not in PINNED_HASHES:
+        if rt.h.tool_policy and manifest_hash(p.name, p.description) not in PINNED_HASHES:
             log.record("tool_blocked", f"plugin:{p.name}", args={}, why="manifest not pinned")
             return {"status": "rejected", "why": "tool manifest is not on the pinned allowlist"}
         plugins[p.name] = p.description
@@ -149,7 +150,7 @@ def create_app(
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "target": name, "profile": profile.name}
+        return {"status": "ok", "target": name, "profile": rt.profile.name}
 
     @app.post("/chat")
     def chat(req: ChatRequest) -> ChatResponse:
@@ -159,12 +160,17 @@ def create_app(
             for t in req.history
         ]
         messages.append(HumanMessage(req.message))
+        h = rt.h
+        if rt.guard("input", req.message, "user_message"):
+            return ChatResponse(answer=REFUSAL, tool_calls=[], rendered=[])
         result = graph().invoke({"messages": messages}, {"recursion_limit": 25})
         answer = str(result["messages"][-1].content)
         if h.redact_output:
             answer = redact(answer, secrets.values())
         if h.sanitize_markdown:
             answer = sanitize_markdown(answer)
+        if rt.guard("output", answer, "answer"):
+            answer = REFUSAL
         calls = [
             ToolCall(
                 name=e.name,

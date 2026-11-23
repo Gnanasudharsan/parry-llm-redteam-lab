@@ -30,6 +30,7 @@ from targets.lab.guard import (
 )
 from targets.lab.llm import Embedder, chat_model, embedder
 from targets.lab.profile import Profile, profile_from_env
+from targets.lab.runtime import REFUSAL, Runtime
 from targets.rag.store import Doc, VectorStore, load_corpus
 
 CORPUS = Path(__file__).parent / "corpus"
@@ -104,7 +105,7 @@ def create_app(
     store = VectorStore(emb or embedder())
     store.add(load_corpus(CORPUS, secrets.as_dict()))
     counter = {"n": 0}
-    h = profile.hardening
+    rt = Runtime(profile, log)
 
     app = FastAPI(title=f"Harborview RAG ({profile.name})", docs_url=None, redoc_url=None)
 
@@ -114,7 +115,7 @@ def create_app(
     app.include_router(
         admin_router(
             target=name,
-            profile=profile,
+            runtime=rt,
             secrets=secrets,
             log=log,
             reset=reset,
@@ -124,17 +125,22 @@ def create_app(
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "target": name, "profile": profile.name}
+        return {"status": "ok", "target": name, "profile": rt.profile.name}
 
     @app.post("/chat")
     def chat(req: ChatRequest) -> ChatResponse:
+        h = rt.h
+        if rt.guard("input", req.message, "user_message"):
+            return ChatResponse(answer=REFUSAL, sources=[], rendered=[])
         allowed = {"public"} if (h.acl and req.role == "customer") else None
         # Follow-ups ("how much does it cost?") need the previous user turn to retrieve well.
         prior = [t.content for t in req.history if t.role == "user"][-1:]
         query = " ".join([*prior, req.message])
         docs = store.search(query, k=TOP_K, visibility=allowed)  # type: ignore[arg-type]
+        # Untrusted retrieved content (corpus, reviews, imported pages) is screened per doc.
+        docs = [d for d in docs if not rt.guard("untrusted", f"{d.title}\n{d.text}", f"doc:{d.id}")]
         messages: list[BaseMessage] = [
-            SystemMessage(_system_prompt(profile, docs, secrets.system_canary, secrets.api_key))
+            SystemMessage(_system_prompt(rt.profile, docs, secrets.system_canary, secrets.api_key))
         ]
         for t in req.history:
             messages.append(HumanMessage(t.content) if t.role == "user" else AIMessage(t.content))
@@ -150,6 +156,8 @@ def create_app(
             answer = redact(answer, hidden)
         if h.sanitize_markdown:
             answer = sanitize_markdown(answer)
+        if rt.guard("output", answer, "answer"):
+            answer = REFUSAL
         rendered = egress.render_images(log, image_urls(answer))
         return ChatResponse(answer=answer, sources=[d.id for d in docs], rendered=rendered)
 
@@ -168,7 +176,7 @@ def create_app(
     @app.post("/ingest-url")
     def ingest_url(body: IngestUrl) -> dict[str, str]:
         try:
-            raw = egress.fetch(log, body.url, restricted=h.egress_allowlist, reason="ingest_url")
+            raw = egress.fetch(log, body.url, restricted=rt.h.egress_allowlist, reason="ingest_url")
         except egress.EgressBlockedError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except Exception as exc:
