@@ -33,3 +33,19 @@ def test_runtime_config_switches_controls_and_layers(vulnerable: Profile) -> Non
     assert r.json()["profile"]["name"] == "custom" and r.json()["defenses"] == []
     assert c.put("/_lab/config", headers=AUTH, json={"defenses": ["nope"]}).status_code == 400
     assert c.put("/_lab/config", json={"restore": True}).status_code == 401
+
+
+def test_trace_counts_validator_constructions_and_calls(vulnerable: Profile) -> None:
+    model = ScriptedModel(script=[AIMessage("fine"), AIMessage("fine"), AIMessage("fine")])
+    c = TestClient(
+        create_app(profile=vulnerable, model=model, emb=HashingEmbedder(), target_name="t")
+    )
+    c.put("/_lab/config", headers=AUTH, json={"restore": True, "hardening": {"acl": True}})
+    c.post("/chat", json={"message": "returns?"})
+    assert c.get("/_lab/state", headers=AUTH).json()["trace"] == {}
+
+    c.put("/_lab/config", headers=AUTH, json={"restore": True, "defenses": ["output_validator"]})
+    c.post("/chat", json={"message": "returns?"})
+    c.post("/chat", json={"message": "shipping?"})
+    trace = c.get("/_lab/state", headers=AUTH).json()["trace"]
+    assert trace == {"output_validator.construct": 1, "output_validator.check": 2}

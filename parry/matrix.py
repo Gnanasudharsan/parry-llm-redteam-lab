@@ -24,6 +24,7 @@ from parry.config import AppType, ParryConfig
 from parry.engine import load_trials, run_scan
 from parry.lab import LabClient
 from parry.metrics import wilson_interval
+from parry.provenance import ollama_info
 from parry.reporting.summary import scored
 from parry.scope import AuthorizedTarget
 from parry.tasks import load_taskset
@@ -53,6 +54,10 @@ def run_matrix(
 ) -> Path:
     out = out_root / ("matrix-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"))
     out.mkdir(parents=True)
+    (out / "provenance.json").write_text(
+        json.dumps({"ollama": ollama_info(str(cfg.judge.llm_url)), "seed": cfg.seed}, indent=2)
+        + "\n"
+    )
     for auth in targets:
         t = auth.target
         if not t.lab:
@@ -71,6 +76,7 @@ def run_matrix(
                     cfg, [auth], cases, cell, use_llm_judge=use_llm_judge, progress=lambda s: None
                 )
                 benign = run_benign(make_adapter(t), lab, tasks)
+                after = lab.state()  # trace counts cover this cell's attacks and benign tasks
                 (run_dir / "benign.jsonl").write_text(
                     "".join(b.model_dump_json() + "\n" for b in benign)
                 )
@@ -78,6 +84,8 @@ def run_matrix(
                 applied = {
                     "applied": state.get("defenses"),
                     "defense_versions": state.get("defense_versions", {}),
+                    "trace": after.get("trace", {}),
+                    "model": after.get("model"),
                 }
                 (run_dir / "config.json").write_text(
                     json.dumps({**mc.model_dump(mode="json"), **applied}, indent=2)
@@ -115,6 +123,7 @@ def cell_summary(run_dir: Path) -> dict[str, Any]:
         "git_commit": meta.get("git_commit"),
         "git_dirty": meta.get("git_dirty"),
         "defense_versions": versions,
+        "trace": conf.get("trace", {}),
         "validator_version": (
             versions.get("output_validator", "unrecorded") if uses_validator else "not used"
         ),

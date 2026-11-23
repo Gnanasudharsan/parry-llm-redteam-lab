@@ -69,6 +69,7 @@ class OpenAICompatAdapter:
         self.url = url.rstrip("/")
         self.model = model
         self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        self.seed = int(os.environ.get("PARRY_SEED", "1337"))
         self.timeout = timeout
 
     def chat(self, message: str, history: list[dict[str, str]], role: str | None = None) -> Reply:
@@ -76,7 +77,12 @@ class OpenAICompatAdapter:
         try:
             r = httpx.post(
                 f"{self.url}/chat/completions",
-                json={"model": self.model, "messages": messages, "temperature": 0},
+                json={
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": 0,
+                    "seed": self.seed,
+                },
                 headers=self.headers,
                 timeout=self.timeout,
             )

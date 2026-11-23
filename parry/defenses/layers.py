@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import re
+from collections import Counter
 
 import httpx
 
 from parry.defenses.base import Decision, Hook, timed
 
 GUARD_TIMEOUT_S = 60.0
+
+# Instrumentation: how many times each layer was built and called since the last
+# reconfiguration. Lets a run prove that a layer was (or was not) involved in its results.
+TRACE: Counter[str] = Counter()
+log = logging.getLogger("parry.defenses")
 
 
 class LlamaGuard:
@@ -20,11 +28,18 @@ class LlamaGuard:
 
     hooks: frozenset[Hook] = frozenset({"input", "output"})
 
-    def __init__(self, ollama_url: str, model: str = "llama-guard3:1b", name: str = "llama_guard"):
+    def __init__(
+        self,
+        ollama_url: str,
+        model: str = "llama-guard3:1b",
+        name: str = "llama_guard",
+        seed: int | None = None,
+    ):
         self.url = ollama_url.rstrip("/")
         self.model = model
         self.name = name
-        self.version = f"ollama:{model}"
+        self.seed = seed if seed is not None else int(os.environ.get("LAB_MODEL_SEED", "1337"))
+        self.version = f"ollama:{model}@seed={self.seed}"
 
     def check(self, hook: Hook, text: str) -> Decision:
         def run() -> Decision:
@@ -42,7 +57,7 @@ class LlamaGuard:
                     "model": self.model,
                     "messages": messages,
                     "stream": False,
-                    "options": {"temperature": 0, "num_predict": 20},
+                    "options": {"temperature": 0, "seed": self.seed, "num_predict": 20},
                 },
                 timeout=GUARD_TIMEOUT_S,
             )
@@ -138,6 +153,8 @@ class OutputValidator:
     ) -> None:
         self.patterns = [re.compile(_format_pattern(p, n), re.IGNORECASE) for p, n in formats]
         self.trusted = trusted_hosts
+        TRACE["output_validator.construct"] += 1
+        log.info("PARRY_TRACE construct output_validator version=%s", self.version)
 
     def _external(self, text: str) -> list[str]:
         out = []
@@ -149,6 +166,9 @@ class OutputValidator:
         return out
 
     def check(self, hook: Hook, text: str) -> Decision:
+        TRACE["output_validator.check"] += 1
+        log.info("PARRY_TRACE check output_validator hook=%s", hook)
+
         def run() -> Decision:
             secrets = [p.pattern for p in self.patterns if p.search(text)]
             hosts = self._external(text)

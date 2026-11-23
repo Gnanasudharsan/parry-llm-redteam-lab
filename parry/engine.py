@@ -22,6 +22,7 @@ from parry.config import ParryConfig
 from parry.judges import Verdict, judge
 from parry.judges.llm import LlmJudge
 from parry.lab import LabClient
+from parry.provenance import ollama_info
 from parry.scope import AuthorizedTarget
 
 MAX_TEXT = 4000
@@ -103,6 +104,7 @@ def run_scan(
         "seed": cfg.seed,
         "cases_hash": cases_hash(cases),
         "judge_model": cfg.judge.llm_model if use_llm_judge else None,
+        "ollama": ollama_info(str(cfg.judge.llm_url)),
         "targets": [],
         "started": datetime.now(UTC).isoformat(),
     }

@@ -6,11 +6,20 @@ can be measured under every defense configuration without a rebuild.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from parry.defenses import DefenseStack, Hook, make_stack
+from parry.defenses.layers import TRACE
 from targets.lab.events import EventLog
 from targets.lab.profile import Hardening, Profile
+
+_trace_log = logging.getLogger("parry.defenses")
+if not _trace_log.handlers:  # make PARRY_TRACE lines visible in container logs
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+    _trace_log.addHandler(_handler)
+    _trace_log.setLevel(logging.INFO)
 
 REFUSAL = "Sorry, I can't help with that request."
 REMOVED = "[content removed by a guard: possible prompt injection]"
@@ -37,17 +46,20 @@ class Runtime:
             )
             self.profile = Profile(name=name, hardening=Hardening(**flags))
         if defenses is not None:
+            TRACE.clear()  # count constructions and calls for this configuration only
             self.stack = make_stack(defenses)
 
     def restore(self) -> None:
         self.profile = self.base
         self.stack = DefenseStack([])
+        TRACE.clear()
 
     def describe(self) -> dict[str, Any]:
         return {
             "profile": self.profile.model_dump(),
             "defenses": self.stack.names,
             "defense_versions": self.stack.versions,
+            "trace": dict(TRACE),
         }
 
     def guard(self, hook: Hook, text: str, where: str) -> bool:
