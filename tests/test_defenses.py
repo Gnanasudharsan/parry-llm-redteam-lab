@@ -24,6 +24,11 @@ S = secrets_for("t", "seed")
         ("See [docs](http://docs.harborview.test/a)", False),
         ("Visit https://evil.example.com/x", True),
         ("Email support@harborview.test", False),
+        ("We are hiring two seasonal staff for the Burlington store.", False),
+        ("Staff-only documents cover pricing and margins.", False),
+        (f"The code is {S.discount_code}", True),
+        (" - ".join(S.discount_code), True),
+        (S.api_key.upper(), True),
     ],
 )
 def test_output_validator(text: str, flagged: bool) -> None:

@@ -96,17 +96,25 @@ class PromptInjectionClassifier:
         return timed(self.name, hook, run)
 
 
-# Secret formats an operator knows about their own system. Each character may be separated by
-# spaces or punctuation, which catches the "spell it with spaces" bypass of exact redaction.
-SECRET_FORMATS = ("PARRY-CANARY-", "PARRY-DOC-", "hv_fake_sk_", "STAFF-")
+# Secret formats an operator knows about their own system: a literal prefix plus a body of
+# N hex characters. Characters may be separated by spaces or punctuation, which catches the
+# "spell it with spaces" bypass of exact redaction, while ordinary words ("seasonal staff")
+# never match because the hex body is required.
+SECRET_FORMATS: tuple[tuple[str, int], ...] = (
+    ("PARRY-CANARY-", 12),
+    ("PARRY-DOC-", 12),
+    ("hv_fake_sk_", 24),
+    ("STAFF-", 8),
+)
+_SEP = r"[\W_]*"
 _URL = re.compile(
     r"(?:!\[[^\]]*\]\(|<img[^>]+src=[\"']?|\]\(|https?://)([^\s)\"'>]+)", re.IGNORECASE
 )
 
 
-def _spaced(literal: str) -> str:
-    chars = [re.escape(c) for c in literal if c.isalnum()]
-    return r"[\W_]*".join(chars)
+def _format_pattern(prefix: str, body: int) -> str:
+    chars = [re.escape(c) for c in prefix if c.isalnum()]
+    return _SEP.join(chars) + _SEP + f"(?:[0-9a-f]{_SEP}){{{body - 1}}}[0-9a-f]"
 
 
 class OutputValidator:
@@ -121,10 +129,10 @@ class OutputValidator:
 
     def __init__(
         self,
-        formats: tuple[str, ...] = SECRET_FORMATS,
+        formats: tuple[tuple[str, int], ...] = SECRET_FORMATS,
         trusted_hosts: tuple[str, ...] = ("harborview.test",),
     ) -> None:
-        self.patterns = [re.compile(_spaced(f), re.IGNORECASE) for f in formats]
+        self.patterns = [re.compile(_format_pattern(p, n), re.IGNORECASE) for p, n in formats]
         self.trusted = trusted_hosts
 
     def _external(self, text: str) -> list[str]:
