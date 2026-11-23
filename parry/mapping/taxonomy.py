@@ -1,8 +1,9 @@
 """Taxonomy tables.
 
 OWASP: Top 10 for LLM Applications, 2025 edition (genai.owasp.org).
-ATLAS: intentionally empty in Phase 0. Technique IDs are added in Phase 2, each checked
-against the current published ATLAS release, together with the attacks that use them.
+ATLAS: technique IDs and names checked against MITRE ATLAS 5.6.0 (atlas-data release
+v2026.10, https://github.com/mitre-atlas/atlas-data). Only the techniques Parry's attacks
+exercise are listed; `tests/test_mapping.py` pins them.
 """
 
 from __future__ import annotations
@@ -40,7 +41,36 @@ OWASP_LLM_2025: Mapping[str, TaxonomyEntry] = {
     )
 }
 
-ATLAS_TECHNIQUES: Mapping[str, TaxonomyEntry] = {}
+ATLAS_VERSION = "5.6.0"
+
+
+def _atlas(tid: str, name: str) -> TaxonomyEntry:
+    return TaxonomyEntry(id=tid, name=name, framework=f"MITRE ATLAS {ATLAS_VERSION}")
+
+
+ATLAS_TECHNIQUES: Mapping[str, TaxonomyEntry] = {
+    e.id: e
+    for e in (
+        _atlas("AML.T0051", "LLM Prompt Injection"),
+        _atlas("AML.T0051.000", "LLM Prompt Injection: Direct"),
+        _atlas("AML.T0051.001", "LLM Prompt Injection: Indirect"),
+        _atlas("AML.T0054", "LLM Jailbreak"),
+        _atlas("AML.T0056", "Extract LLM System Prompt"),
+        _atlas("AML.T0057", "LLM Data Leakage"),
+        _atlas("AML.T0053", "AI Agent Tool Invocation"),
+        _atlas("AML.T0068", "LLM Prompt Obfuscation"),
+        _atlas("AML.T0070", "RAG Poisoning"),
+        _atlas("AML.T0066", "Retrieval Content Crafting"),
+        _atlas("AML.T0077", "LLM Response Rendering"),
+        _atlas("AML.T0080", "AI Agent Context Poisoning"),
+        _atlas("AML.T0086", "Exfiltration via AI Agent Tool Invocation"),
+        _atlas("AML.T0099", "AI Agent Tool Data Poisoning"),
+        _atlas("AML.T0101", "Data Destruction via AI Agent Tool Invocation"),
+        _atlas("AML.T0110", "AI Agent Tool Poisoning"),
+        _atlas("AML.T0055", "Unsecured Credentials"),
+        _atlas("AML.T0037", "Data from Local System"),
+    )
+}
 
 
 def validate_ids(ids: Iterable[str]) -> list[TaxonomyEntry]:
