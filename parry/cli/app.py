@@ -260,6 +260,17 @@ def matrix_report(
     typer.echo(f"wrote {matrix_dir / 'matrix.md'} and {matrix_dir / 'pareto.svg'}")
 
 
+@app.command("matrix-compare")
+def matrix_compare(
+    original: Path = typer.Argument(..., help="Original cell run folder."),
+    rerun: Path = typer.Argument(..., help="Rerun of the same configuration."),
+) -> None:
+    """Check a rerun against the original within measured run-to-run noise."""
+    from parry.matrix import compare_cells
+
+    typer.echo(json.dumps(compare_cells(original, rerun), indent=2))
+
+
 @app.command()
 def benign(
     config: Path = ConfigOpt,

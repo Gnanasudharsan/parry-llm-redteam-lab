@@ -8,6 +8,7 @@ next to each other so security and utility come from the same app state.
 from __future__ import annotations
 
 import json
+import math
 import statistics
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -177,3 +178,47 @@ def summarize_matrix(out: Path) -> dict[str, Any]:
                     )
         result["targets"][target_dir.name] = cells
     return result
+
+
+# Run-to-run noise measured in Phase 2: 1 changed verdict in 256 repeated trials.
+PHASE2_FLIPS, PHASE2_TRIALS = 1, 256
+
+
+def compare_cells(a: Path, b: Path) -> dict[str, Any]:
+    """Compare two runs of the same configuration (e.g. original vs spot-check rerun).
+
+    Passes when (1) per-case verdict changes stay within the Phase 2 noise allowance,
+    ceil(n x upper 95% Wilson bound of 1/256), and (2) the two ASR intervals overlap.
+    """
+    ta = {t.case_id: t for t in scored(load_trials(a))}
+    tb = {t.case_id: t for t in scored(load_trials(b))}
+    common = sorted(set(ta) & set(tb))
+
+    def ok(t: Any) -> bool:
+        return bool(t.verdict and t.verdict.success)
+
+    flips = [c for c in common if ok(ta[c]) != ok(tb[c])]
+    same_replies = sum(ta[c].replies == tb[c].replies for c in common)
+    sa, sb = cell_summary(a), cell_summary(b)
+    allowance = math.ceil(len(common) * wilson_interval(PHASE2_FLIPS, PHASE2_TRIALS).high)
+    overlap = sa["asr"]["low"] <= sb["asr"]["high"] and sb["asr"]["low"] <= sa["asr"]["high"]
+    ba = {x.id: x.passed for x in _benign(a)}
+    bb = {x.id: x.passed for x in _benign(b)}
+    return {
+        "cases": len(common),
+        "missing": sorted(set(ta) ^ set(tb)),
+        "asr_original": sa["asr"]["text"],
+        "asr_rerun": sb["asr"]["text"],
+        "verdict_changes": flips,
+        "allowance": allowance,
+        "identical_replies": f"{same_replies}/{len(common)}",
+        "ci_overlap": overlap,
+        "benign_changes": sorted(k for k in ba if k in bb and ba[k] != bb[k]),
+        "trace_rerun": sb.get("trace", {}),
+        "pass": len(flips) <= allowance and overlap,
+    }
+
+
+def _benign(run_dir: Path) -> list[BenignResult]:
+    lines = (run_dir / "benign.jsonl").read_text().splitlines()
+    return [BenignResult.model_validate_json(x) for x in lines]
