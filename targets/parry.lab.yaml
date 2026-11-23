@@ -4,26 +4,38 @@ version: 1
 seed: 1337
 targets:
   - name: vuln-rag
+    app: rag
+    lab: true
     kind: http
     url: http://localhost:8101
     owner_statement: Parry's own deliberately vulnerable RAG app, running locally in Docker.
   - name: hard-rag
+    app: rag
+    lab: true
     kind: http
     url: http://localhost:8102
     owner_statement: Parry's own hardened RAG app, running locally in Docker.
   - name: vuln-agent
+    app: agent
+    lab: true
     kind: http
     url: http://localhost:8111
     owner_statement: Parry's own deliberately vulnerable tool-using agent, running locally.
   - name: hard-agent
+    app: agent
+    lab: true
     kind: http
     url: http://localhost:8112
     owner_statement: Parry's own hardened tool-using agent, running locally.
   - name: vuln-mcp
+    app: mcp
+    lab: true
     kind: mcp_http
     url: http://localhost:8121/mcp
     owner_statement: Parry's own deliberately vulnerable MCP server, running locally.
   - name: hard-mcp
+    app: mcp
+    lab: true
     kind: mcp_http
     url: http://localhost:8122/mcp
     owner_statement: Parry's own hardened MCP server, running locally.

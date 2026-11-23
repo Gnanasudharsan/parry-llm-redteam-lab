@@ -33,6 +33,15 @@ class TargetKind(StrEnum):
         return self not in {TargetKind.LANGGRAPH, TargetKind.MCP_STDIO}
 
 
+class AppType(StrEnum):
+    """What kind of application sits behind the target; decides which attacks apply."""
+
+    CHAT = "chat"  # plain chat endpoint
+    RAG = "rag"  # chat over retrieved documents
+    AGENT = "agent"  # chat with tools
+    MCP = "mcp"  # MCP server
+
+
 class TargetConfig(BaseModel):
     """One system under test. Listing it here is not authorization by itself."""
 
@@ -45,6 +54,15 @@ class TargetConfig(BaseModel):
     entrypoint: str | None = Field(default=None, description="module:attr for in-process targets")
     command: list[str] | None = Field(default=None, description="argv for mcp_stdio targets")
     api_key_env: str | None = None
+    app: AppType = AppType.CHAT
+    lab: bool = Field(
+        default=False,
+        description="Target exposes the Parry lab admin API (reset, planted values, events).",
+    )
+    canaries: list[str] = Field(
+        default_factory=list,
+        description="Strings planted in a non-lab target; leaking one counts as a leak.",
+    )
     owner_statement: str = Field(
         min_length=10,
         description="Why you are allowed to test this target, in your own words.",
@@ -72,11 +90,28 @@ class TargetConfig(BaseModel):
         return self
 
 
+class LabSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mockweb_url: HttpUrl = HttpUrl("http://localhost:8199")
+    admin_token_env: str = "LAB_ADMIN_TOKEN"  # noqa: S105 - an env var name, not a token
+    seed_env: str = "LAB_SEED"
+
+
+class JudgeSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    llm_url: HttpUrl = HttpUrl("http://localhost:11434")  # Ollama native API
+    llm_model: str = "qwen2.5:7b-instruct"
+
+
 class ParryConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     version: int = Field(default=1, ge=1, le=1)
     seed: int = 1337
+    lab: LabSettings = Field(default_factory=LabSettings)
+    judge: JudgeSettings = Field(default_factory=JudgeSettings)
     targets: list[TargetConfig] = Field(min_length=1)
 
     @model_validator(mode="after")
