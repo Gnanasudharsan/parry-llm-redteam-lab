@@ -22,6 +22,8 @@ targets_app = typer.Typer(help="Inspect and authorize targets.", no_args_is_help
 app.add_typer(targets_app, name="targets")
 attacks_app = typer.Typer(help="Browse the attack catalog.", no_args_is_help=True)
 app.add_typer(attacks_app, name="attacks")
+guard_app = typer.Typer(help="Serve guard classifiers for lab apps.", no_args_is_help=True)
+app.add_typer(guard_app, name="guard")
 judge_app = typer.Typer(help="Measure judge accuracy against human labels.", no_args_is_help=True)
 app.add_typer(judge_app, name="judge")
 
@@ -214,6 +216,87 @@ def judge_eval(path: Path = typer.Argument(..., help="A labeled sample .jsonl.")
     from parry.judges.labels import evaluate, load
 
     typer.echo(json.dumps(evaluate(load(path)), indent=2))
+
+
+@app.command()
+def matrix(
+    config: Path = ConfigOpt,
+    i_own_this_target: list[str] = OwnOpt,
+    configs: Path = typer.Option(Path("targets/matrix.yaml"), help="Defense configurations."),
+    tasks: Path = typer.Option(Path("targets/benign"), help="Folder with <app>.yaml task sets."),
+    only: list[str] = typer.Option([], help="Run only these configuration names (repeatable)."),
+    out: Path = typer.Option(Path("runs")),
+    llm_judge: bool = typer.Option(True),
+) -> None:
+    """Run attacks and benign tasks under every defense configuration (lab targets only)."""
+    from parry.matrix import load_matrix, run_matrix
+
+    cfg = _load(config)
+    try:
+        allowed = authorize(cfg, i_own_this_target)
+    except ScopeError as exc:
+        typer.echo(f"refused: {exc}", err=True)
+        raise typer.Exit(EXIT_REFUSED) from exc
+    mcs = [m for m in load_matrix(configs) if not only or m.name in only]
+    cases = _select(cfg.seed, [], [])
+    out_dir = run_matrix(
+        cfg, allowed, mcs, cases, tasks, out, use_llm_judge=llm_judge, progress=typer.echo
+    )
+    typer.echo(f"matrix: {out_dir / 'matrix.json'}")
+
+
+@app.command()
+def benign(
+    config: Path = ConfigOpt,
+    i_own_this_target: list[str] = OwnOpt,
+    tasks: Path = typer.Option(Path("targets/benign"), help="Folder with <app>.yaml task sets."),
+    out: Path = typer.Option(Path("reports/benign.json")),
+) -> None:
+    """Run benign task sets (utility, false positives, latency) on authorized targets."""
+    from parry.adapters import make_adapter
+    from parry.benign import run_benign
+    from parry.lab import LabClient
+    from parry.metrics import wilson_interval
+    from parry.tasks import load_taskset
+
+    cfg = _load(config)
+    try:
+        allowed = authorize(cfg, i_own_this_target)
+    except ScopeError as exc:
+        typer.echo(f"refused: {exc}", err=True)
+        raise typer.Exit(EXIT_REFUSED) from exc
+    report = {}
+    for a in allowed:
+        t = a.target
+        lab = LabClient(cfg, t) if t.lab else None
+        rows = run_benign(make_adapter(t), lab, load_taskset(tasks / f"{t.app}.yaml"))
+        core = [r for r in rows if not r.approval_gated]
+        gated = [r for r in rows if r.approval_gated]
+        rate = wilson_interval(sum(r.passed for r in core), len(core))
+        g = wilson_interval(sum(r.passed for r in gated), len(gated))
+        leaks = sum(r.leaked for r in core)
+        typer.echo(f"{t.name:<12} core {rate}  gated {g if gated else '-'}  leaks {leaks}")
+        report[t.name] = {
+            "core": str(rate),
+            "gated": str(g) if gated else None,
+            "tasks": [r.model_dump() for r in rows],
+        }
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2) + "\n")
+    typer.echo(f"wrote {out}")
+
+
+@guard_app.command("serve")
+def guard_serve(
+    host: str = typer.Option("127.0.0.1", help="Bind address (keep it local)."),
+    port: int = typer.Option(8300),
+) -> None:
+    """Serve prompt-injection classifiers at POST /classify (needs the lab and ml groups)."""
+    import uvicorn
+
+    from parry.defenses.server import create_app
+
+    uvicorn.run(create_app(), host=host, port=port)
 
 
 if __name__ == "__main__":

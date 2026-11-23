@@ -1,0 +1,27 @@
+# Defense configurations for `parry matrix`. Each one is applied to the *vulnerable* lab
+# containers at runtime (PUT /_lab/config), so every configuration starts from the same app.
+# `apps` limits a configuration to the app types where the control does something.
+configs:
+  - name: none
+  # Target-side controls, one at a time (targets/lab/profile.py)
+  - {name: spotlight, hardening: {spotlight_untrusted: true}}
+  - {name: instruction_hierarchy, hardening: {instruction_hierarchy: true}}
+  - {name: spotlight+hierarchy, hardening: {spotlight_untrusted: true, instruction_hierarchy: true}}
+  - {name: acl, hardening: {acl: true}}
+  - {name: secrets_out_of_prompt, hardening: {secrets_out_of_prompt: true}}
+  - {name: redact_output, hardening: {redact_output: true}}
+  - {name: sanitize_markdown, hardening: {sanitize_markdown: true}, apps: [rag, agent]}
+  - {name: egress_allowlist, hardening: {egress_allowlist: true}}
+  - {name: tool_policy, hardening: {tool_policy: true}, apps: [agent]}
+  # Parry defense layers (parry/defenses)
+  - {name: llama_guard, defenses: [llama_guard]}
+  - {name: pi_classifier, defenses: [pi_classifier]}
+  - {name: output_validator, defenses: [output_validator]}
+  # Combined
+  - name: hardened
+    hardening: {acl: true, secrets_out_of_prompt: true, instruction_hierarchy: true, spotlight_untrusted: true,
+                redact_output: true, sanitize_markdown: true, egress_allowlist: true, tool_policy: true}
+  - name: hardened+guards
+    hardening: {acl: true, secrets_out_of_prompt: true, instruction_hierarchy: true, spotlight_untrusted: true,
+                redact_output: true, sanitize_markdown: true, egress_allowlist: true, tool_policy: true}
+    defenses: [pi_classifier, output_validator, llama_guard]
