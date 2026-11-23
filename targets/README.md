@@ -1,13 +1,18 @@
 # Lab targets
 
-Deliberately vulnerable LLM apps for learning and benchmarking, each with a hardened twin.
-Built in Phase 1 and run with `make targets-up` (Docker Compose, isolated network).
+Deliberately vulnerable LLM apps for learning and benchmarking, each with a hardened twin
+built from the same code. Full guide: [docs/lab.md](../docs/lab.md).
 
-| Target | Vulnerable | Hardened twin |
-|---|---|---|
-| RAG app (FastAPI + small vector store) | `vuln_rag` | `hard_rag` |
-| Tool-using agent (LangGraph; mock `send_email`, `delete_file`, `transfer_funds` that only log) | `vuln_agent` | `hard_agent` |
-| MCP server | `vuln_mcp` | `hard_mcp` |
+| Target | Code | Vulnerable | Hardened |
+|---|---|---|---|
+| RAG customer assistant (FastAPI + numpy vector store + Ollama) | `rag/` | `vuln-rag` :8101 | `hard-rag` :8102 |
+| Tool-using ops agent (LangGraph; mock bank, email, files, orders, web) | `agent/` | `vuln-agent` :8111 | `hard-agent` :8112 |
+| Workspace MCP server (official MCP Python SDK, streamable HTTP) | `mcp_server/` | `vuln-mcp` :8121 | `hard-mcp` :8122 |
+| Mock web + exfiltration recorder | `mockweb/` | `mockweb` :8199 | |
 
-Every target holds a canary in its system prompt, fake secrets, and points at a local mock
-exfiltration endpoint. Nothing in here touches the real network, real files or real money.
+Shared pieces live in `lab/`: canaries and fake secrets (`canary.py`), hardening profiles
+(`profile.py`), hardening helpers (`guard.py`), recorded egress (`egress.py`), the event log
+and the token-guarded admin API.
+
+Nothing in here touches the real network, real files or real money. Mock tools only change
+in-memory state and record events, and the lab network has no route to the internet.
