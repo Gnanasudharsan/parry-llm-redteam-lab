@@ -1,4 +1,6 @@
 .DEFAULT_GOAL := help
+# Progress lines reach logs immediately even when output is piped.
+export PYTHONUNBUFFERED := 1
 COMPOSE := docker compose -f targets/compose.yaml
 CONFIG ?= parry.yaml
 

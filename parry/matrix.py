@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from parry.adapters import make_adapter
 from parry.attacks.model import AttackCase
-from parry.benign import BenignResult, run_benign
+from parry.benign import BenignResult, latest, run_benign
 from parry.config import AppType, ParryConfig
 from parry.engine import load_trials, run_scan
 from parry.lab import LabClient
@@ -51,7 +51,7 @@ def run_matrix(
     out_root: Path,
     *,
     use_llm_judge: bool = True,
-    progress: Callable[[str], None] = print,
+    progress: Callable[[str], None] = lambda s: print(s, flush=True),
 ) -> Path:
     out = out_root / ("matrix-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"))
     out.mkdir(parents=True)
@@ -202,8 +202,8 @@ def compare_cells(a: Path, b: Path) -> dict[str, Any]:
     sa, sb = cell_summary(a), cell_summary(b)
     allowance = math.ceil(len(common) * wilson_interval(PHASE2_FLIPS, PHASE2_TRIALS).high)
     overlap = sa["asr"]["low"] <= sb["asr"]["high"] and sb["asr"]["low"] <= sa["asr"]["high"]
-    ba = {x.id: x.passed for x in _benign(a)}
-    bb = {x.id: x.passed for x in _benign(b)}
+    ba = {x.id: x.passed for x in latest(_benign(a))}
+    bb = {x.id: x.passed for x in latest(_benign(b))}
     return {
         "cases": len(common),
         "missing": sorted(set(ta) ^ set(tb)),

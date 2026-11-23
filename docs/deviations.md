@@ -67,6 +67,27 @@ Both must pass: (a) zero `OutputValidator` constructions and calls in the trace,
 per-case verdict changes within the Phase 2 noise allowance and overlapping ASR intervals
 (`parry matrix-compare`). If either fails for any app, the full matrix is rerun.
 
+## Tooling note T-001: progress output and stale estimates (Phase 3)
+
+- **Report:** status updates during the Phase 3 matrix repeated an estimate of about 2.5
+  hours remaining across several updates.
+- **What it was:** the estimate itself was stale; it was restated instead of recomputed from
+  completed cells. The progress log was not materially behind: `typer.echo` flushes each
+  line, and the log matched the result files within one cell. (An earlier status message
+  blamed log buffering; that was wrong and is corrected here.)
+- **Fix:** progress is now reported from the result files on disk (cells completed, cases per
+  cell, minutes per cell, errors and retries). For future runs the Makefile exports
+  `PYTHONUNBUFFERED=1`, and the engine and matrix default progress printers pass
+  `flush=True`, so piped logs are line-current from the first line.
+
+## Retry rule (from Phase 3 on)
+
+A case or benign task that ends in an error (transport failure, timeout, crash) is retried
+once after the rest of its cell, with the same seed and nonce. Both attempts are kept in
+`trials.jsonl` / `benign.jsonl` (`attempt: 1` and `attempt: 2`); rates use the latest
+attempt; `run.json` lists `retried` and `failed_after_retry` per target. Cases that still
+fail are reported, never dropped.
+
 ## Known non-determinism (context for D-001)
 
 Two identical Phase 2 runs (same commit, seed, model, catalog) gave byte-identical replies on

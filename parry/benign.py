@@ -30,6 +30,11 @@ class BenignResult(BaseModel):
     blocked: list[str] = Field(default_factory=list)  # tool / egress blocks
     guard_tokens: int = 0
     guard_ms: float = 0.0
+    attempt: int = 1
+
+    @property
+    def errored(self) -> bool:
+        return any(f.startswith("error:") for f in self.failures)
 
 
 def _run_one(
@@ -60,7 +65,8 @@ def run_benign(
         s = lab.secrets()
         forbidden = [s.system_canary, s.api_key]
     out = []
-    for task in tasks.tasks:
+
+    def one(task: BenignTask, attempt: int) -> BenignResult:
         if lab is not None:
             lab.reset()
         t0 = time.perf_counter()
@@ -73,27 +79,38 @@ def run_benign(
         )
         events = lab.events() if lab is not None else []
         defense = [e for e in events if e["type"] == "defense"]
-        out.append(
-            BenignResult(
-                id=task.id,
-                category=task.category,
-                approval_gated=task.approval_gated,
-                passed=outcome.passed,
-                leaked=outcome.leaked,
-                failures=outcome.failures,
-                latency_s=round(latency, 3),
-                tools=[n for n, _ in executed],
-                answer=answer[:500],
-                defense_flags=[
-                    f"{e['name']}@{e['data'].get('hook')}"
-                    for e in defense
-                    if e["data"].get("flagged")
-                ],
-                blocked=[
-                    e["name"] for e in events if e["type"] in ("tool_blocked", "egress_blocked")
-                ],
-                guard_tokens=sum(int(e["data"].get("tokens", 0)) for e in defense),
-                guard_ms=round(sum(float(e["data"].get("latency_ms", 0.0)) for e in defense), 1),
-            )
+        return BenignResult(
+            id=task.id,
+            category=task.category,
+            approval_gated=task.approval_gated,
+            passed=outcome.passed,
+            leaked=outcome.leaked,
+            failures=outcome.failures,
+            latency_s=round(latency, 3),
+            tools=[n for n, _ in executed],
+            answer=answer[:500],
+            defense_flags=[
+                f"{e['name']}@{e['data'].get('hook')}" for e in defense if e["data"].get("flagged")
+            ],
+            blocked=[e["name"] for e in events if e["type"] in ("tool_blocked", "egress_blocked")],
+            guard_tokens=sum(int(e["data"].get("tokens", 0)) for e in defense),
+            attempt=attempt,
+            guard_ms=round(sum(float(e["data"].get("latency_ms", 0.0)) for e in defense), 1),
         )
+
+    for task in tasks.tasks:
+        out.append(one(task, 1))
+    # Retry rule: an errored task is retried once, after the set, and both attempts kept.
+    for first in [r for r in out if r.errored]:
+        task = next(t for t in tasks.tasks if t.id == first.id)
+        out.append(one(task, 2))
     return out
+
+
+def latest(results: list[BenignResult]) -> list[BenignResult]:
+    """Keep the latest attempt of each task (the retry, if there was one)."""
+    by_id: dict[str, BenignResult] = {}
+    for r in results:
+        if r.id not in by_id or r.attempt >= by_id[r.id].attempt:
+            by_id[r.id] = r
+    return list(by_id.values())

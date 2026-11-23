@@ -15,10 +15,10 @@ from typing import Any
 from pydantic import BaseModel
 
 from parry import __version__
-from parry.adapters import make_adapter
+from parry.adapters import ChatAdapter, McpAdapter, make_adapter
 from parry.attacks.model import AttackCase
 from parry.channels import ChannelUnavailableError, Delivery, deliver
-from parry.config import ParryConfig
+from parry.config import ParryConfig, TargetConfig
 from parry.judges import Verdict, judge
 from parry.judges.llm import LlmJudge
 from parry.lab import LabClient
@@ -50,6 +50,7 @@ class TrialResult(BaseModel):
     skipped: str | None = None
     error: str | None = None
     latency_s: float
+    attempt: int = 1  # 2 = the one retry of a case that errored
 
 
 def _git_commit() -> str | None:
@@ -90,7 +91,7 @@ def run_scan(
     out_root: Path,
     *,
     use_llm_judge: bool = True,
-    progress: Callable[[str], None] = print,
+    progress: Callable[[str], None] = lambda s: print(s, flush=True),
 ) -> Path:
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + f"-s{cfg.seed}"
     out = out_root / run_id
@@ -133,7 +134,16 @@ def run_scan(
                 }
             )
             progress(f"== {t.name}: {len(applicable)} cases")
-            for case in applicable:
+
+            def one(
+                case: AttackCase,
+                attempt: int,
+                t: TargetConfig = t,
+                auth: AuthorizedTarget = auth,
+                adapter: ChatAdapter | McpAdapter = adapter,
+                lab: LabClient | None = lab,
+                secrets: dict[str, str] = secrets,
+            ) -> TrialResult:
                 t0 = time.perf_counter()
                 delivery, verdict, skipped, error = Delivery(), None, None, None
                 try:
@@ -171,6 +181,7 @@ def run_scan(
                     skipped=skipped,
                     error=error,
                     latency_s=round(time.perf_counter() - t0, 3),
+                    attempt=attempt,
                 )
                 fh.write(trial.model_dump_json() + "\n")
                 fh.flush()
@@ -179,18 +190,38 @@ def run_scan(
                     if skipped
                     else (
                         "ERR "
-                        if verdict is None
+                        if error
                         else (
-                            "HIT " if verdict.success else ("try " if verdict.attempted else "    ")
+                            "HIT "
+                            if verdict and verdict.success
+                            else ("try " if verdict and verdict.attempted else "    ")
                         )
                     )
                 )
-                progress(f"  {mark} {t.name} {case.case_id}")
+                progress(f"  {mark} {t.name} {case.case_id} (attempt {attempt})")
+                return trial
+
+            errored = [c for c in applicable if one(c, 1).error]
+            # Retry rule: every errored case is retried once, same seed and nonce, after the
+            # rest of the cell. Both attempts are kept; rates use the latest attempt.
+            for case in errored:
+                if one(case, 2).error:
+                    meta["targets"][-1].setdefault("failed_after_retry", []).append(case.case_id)
+            meta["targets"][-1]["retried"] = [c.case_id for c in errored]
     meta["finished"] = datetime.now(UTC).isoformat()
     (out / "run.json").write_text(json.dumps(meta, indent=2) + "\n")
     return out
 
 
-def load_trials(run_dir: Path) -> list[TrialResult]:
+def load_trials(run_dir: Path, *, all_attempts: bool = False) -> list[TrialResult]:
+    """Trials of a run; by default only the latest attempt of each (target, case)."""
     lines = (run_dir / "trials.jsonl").read_text().splitlines()
-    return [TrialResult.model_validate_json(line) for line in lines if line.strip()]
+    trials = [TrialResult.model_validate_json(line) for line in lines if line.strip()]
+    if all_attempts:
+        return trials
+    latest: dict[tuple[str, str], TrialResult] = {}
+    for t in trials:
+        key = (t.target, t.case_id)
+        if key not in latest or t.attempt >= latest[key].attempt:
+            latest[key] = t
+    return list(latest.values())
