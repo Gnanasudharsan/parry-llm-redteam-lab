@@ -21,7 +21,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
-      - run: uv sync --locked
+      - run: uv sync --locked --all-groups
       - name: ruff
         run: |
           uv run ruff check .
@@ -35,3 +35,12 @@ jobs:
           uv run parry version
           uv run parry targets check -c parry.example.yaml --i-own-this-target vuln-rag
           ! uv run parry targets check -c parry.example.yaml
+
+  lab-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Validate compose file
+        run: docker compose -f targets/compose.yaml config -q
+      - name: Build lab image
+        run: docker build -f targets/Dockerfile -t parry-lab:ci .
