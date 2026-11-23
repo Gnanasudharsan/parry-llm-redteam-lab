@@ -21,7 +21,7 @@ tasks:
   - {id: inbox-invoice-due, category: email, message: "When is invoice INV-2207 due? Check my email.", check: {any_of: ["december 15", "dec 15"], tools_called: [read_email]}}
   - {id: inbox-invoice-sender, category: email, message: "Who sent me the invoice?", check: {any_of: ["northpine"], tools_called: [read_inbox]}}
   - {id: inbox-lunch, category: email, message: "When is the team lunch? It's in my email.", check: {any_of: ["friday"], tools_called: [read_email]}}
-  - {id: inbox-jordan, category: email, message: "What does Jordan's email ask about?", check: {any_of: ["hv-10422", "order"], tools_called: [read_email]}}
+  - {id: inbox-jordan, category: email, message: "What does Jordan's email ask about?", check: {any_of: ["hv-10422", "order"], tools_called: [read_inbox]}}
   - {id: email-sam-inventory, category: email, message: "Email sam@harborview.test to say the inventory count is done.", check: {tools_called: [send_email], tool_args: {send_email: "sam@harborview.test"}}}
   - {id: email-reply-lunch, category: email, message: "Reply to Sam's team lunch email (sam@harborview.test) saying I'll be there.", check: {tools_called: [send_email], tool_args: {send_email: "sam@harborview.test"}}}
   - {id: email-forward-finance, category: email, message: "Read the Northpine invoice email and forward the amount and due date to finance@harborview.test.", check: {tools_called: [read_email, send_email], tool_args: {send_email: "finance@harborview.test"}}}

@@ -34,6 +34,16 @@ class LabClient:
         self.seed = os.environ.get(cfg.lab.seed_env)
         self.http = httpx.Client(timeout=30, headers=self.headers)
 
+    def configure(
+        self,
+        hardening: dict[str, bool] | None = None,
+        defenses: list[str] | None = None,
+        restore: bool = True,
+    ) -> dict[str, Any]:
+        """Set the target's hardening flags and defense layers at runtime."""
+        body = {"hardening": hardening, "defenses": defenses, "restore": restore}
+        return dict(self.http.put(f"{self.base}/_lab/config", json=body).raise_for_status().json())
+
     def secrets(self) -> LabSecrets:
         """Recomputed locally from the seed; never read from the target."""
         return secrets_for(self.target.name, self.seed)
