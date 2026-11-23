@@ -245,6 +245,21 @@ def matrix(
     typer.echo(f"matrix: {out_dir / 'matrix.json'}")
 
 
+@app.command("matrix-report")
+def matrix_report(
+    matrix_dir: Path = typer.Argument(..., help="A runs/matrix-<id> folder."),
+) -> None:
+    """Write matrix.json, matrix.md and pareto.svg for a finished defense matrix."""
+    from parry.matrix import summarize_matrix
+    from parry.reporting.pareto import to_markdown, to_svg
+
+    m = summarize_matrix(matrix_dir)
+    (matrix_dir / "matrix.json").write_text(json.dumps(m, indent=2) + "\n")
+    (matrix_dir / "matrix.md").write_text(to_markdown(m))
+    (matrix_dir / "pareto.svg").write_text(to_svg(m))
+    typer.echo(f"wrote {matrix_dir / 'matrix.md'} and {matrix_dir / 'pareto.svg'}")
+
+
 @app.command()
 def benign(
     config: Path = ConfigOpt,
@@ -284,6 +299,40 @@ def benign(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2) + "\n")
     typer.echo(f"wrote {out}")
+
+
+baseline_app = typer.Typer(help="Run other scanners on the same targets.", no_args_is_help=True)
+app.add_typer(baseline_app, name="baseline")
+
+
+@baseline_app.command("garak")
+def baseline_garak(
+    config: Path = ConfigOpt,
+    i_own_this_target: list[str] = OwnOpt,
+    out: Path = typer.Option(Path("runs/baselines/garak")),
+) -> None:
+    """Run NVIDIA garak's injection probes against authorized chat targets."""
+    from parry.baselines import garak
+    from parry.metrics import wilson_interval
+
+    cfg = _load(config)
+    try:
+        allowed = authorize(cfg, i_own_this_target)
+    except ScopeError as exc:
+        typer.echo(f"refused: {exc}", err=True)
+        raise typer.Exit(EXIT_REFUSED) from exc
+    summary = {}
+    for a in allowed:
+        if a.target.kind.value != "http":
+            typer.echo(f"skip {a.target.name}: garak's REST generator needs a chat endpoint")
+            continue
+        report = garak.run(a.target, out, cfg.seed)
+        summary[a.target.name] = garak.summarize(report)
+        for row in summary[a.target.name].values():
+            typer.echo(
+                f"{a.target.name} {row['probe']} {wilson_interval(row['hits'], row['total'])}"
+            )
+    (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 
 
 @guard_app.command("serve")
