@@ -45,6 +45,28 @@ never mixed into reported numbers.
 - **Fix:** test-then-commit commands now run with `set -o pipefail`. The pre-commit hook
   still runs ruff and mypy; CI runs the full test suite on every push.
 
+## Checked, no rerun needed: OpenAI-compatible adapter seed (Phase 3)
+
+Commit `efd8fa5` also made `OpenAICompatAdapter` send a fixed seed. It is not on the path of
+any matrix cell: all six lab targets are `kind: http` or `kind: mcp_http`, which
+`make_adapter` routes to `HttpChatAdapter` and `McpAdapter`; `OpenAICompatAdapter` is only
+built for `kind: openai_compat`, and nothing else (judges, guards, garak) uses it.
+
+## Spot-check design (bridge between original and rerun cells)
+
+Two unaffected configurations per app are rerun at the new commit and compared with the
+original cells at `3b4ed31`:
+
+1. `none`, a pure baseline-noise check (every configuration imports `layers.py`).
+2. `pi_classifier`, the only unaffected configuration that builds and calls a layer from
+   `parry/defenses/layers.py` (`PromptInjectionClassifier`) and runs the shared
+   `make_stack -> DefenseStack.check -> timed -> Runtime.guard` path. `acl` and spotlighting
+   are hardening flags that never touch `layers.py`.
+
+Both must pass: (a) zero `OutputValidator` constructions and calls in the trace, and (b)
+per-case verdict changes within the Phase 2 noise allowance and overlapping ASR intervals
+(`parry matrix-compare`). If either fails for any app, the full matrix is rerun.
+
 ## Known non-determinism (context for D-001)
 
 Two identical Phase 2 runs (same commit, seed, model, catalog) gave byte-identical replies on
