@@ -44,7 +44,11 @@ class Runtime:
         self.stack = DefenseStack([])
 
     def describe(self) -> dict[str, Any]:
-        return {"profile": self.profile.model_dump(), "defenses": self.stack.names}
+        return {
+            "profile": self.profile.model_dump(),
+            "defenses": self.stack.names,
+            "defense_versions": self.stack.versions,
+        }
 
     def guard(self, hook: Hook, text: str, where: str) -> bool:
         """Run defense layers on text; record each decision; True if any layer flagged it."""

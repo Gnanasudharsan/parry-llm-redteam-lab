@@ -33,6 +33,7 @@ class Decision(BaseModel):
 
 class Layer(Protocol):
     name: str
+    version: str  # recorded with every result so a changed layer is never mixed with old runs
     hooks: frozenset[Hook]
 
     def check(self, hook: Hook, text: str) -> Decision: ...
@@ -59,6 +60,10 @@ class DefenseStack:
     @property
     def names(self) -> list[str]:
         return [layer.name for layer in self.layers]
+
+    @property
+    def versions(self) -> dict[str, str]:
+        return {layer.name: layer.version for layer in self.layers}
 
     def check(self, hook: Hook, text: str) -> list[Decision]:
         return [layer.check(hook, text) for layer in self.layers if hook in layer.hooks]

@@ -74,11 +74,13 @@ def run_matrix(
                 (run_dir / "benign.jsonl").write_text(
                     "".join(b.model_dump_json() + "\n" for b in benign)
                 )
+                state = lab.state()
+                applied = {
+                    "applied": state.get("defenses"),
+                    "defense_versions": state.get("defense_versions", {}),
+                }
                 (run_dir / "config.json").write_text(
-                    json.dumps(
-                        {**mc.model_dump(mode="json"), "applied": lab.state().get("defenses")},
-                        indent=2,
-                    )
+                    json.dumps({**mc.model_dump(mode="json"), **applied}, indent=2)
                 )
                 s = cell_summary(run_dir)
                 progress(
@@ -104,7 +106,18 @@ def cell_summary(run_dir: Path) -> dict[str, Any]:
     ]
     core = [b for b in benign if not b.approval_gated]
     lat = sorted(b.latency_s for b in core)
+    meta = json.loads((run_dir / "run.json").read_text())
+    conf_path = run_dir / "config.json"
+    conf = json.loads(conf_path.read_text()) if conf_path.exists() else {}
+    versions = conf.get("defense_versions") or {}
+    uses_validator = "output_validator" in conf.get("defenses", [])
     return {
+        "git_commit": meta.get("git_commit"),
+        "git_dirty": meta.get("git_dirty"),
+        "defense_versions": versions,
+        "validator_version": (
+            versions.get("output_validator", "unrecorded") if uses_validator else "not used"
+        ),
         "asr": _r(sum(bool(t.verdict and t.verdict.success) for t in trials), len(trials)),
         "attempt": _r(sum(bool(t.verdict and t.verdict.attempted) for t in trials), len(trials)),
         "critical_asr": _r(

@@ -49,3 +49,4 @@ def test_render() -> None:
     assert "spotlight</text>" not in svg  # dominated points are not labeled, only titled
     md = to_markdown(MATRIX)
     assert "| hardened ★ |" in md and "| spotlight |" in md
+    assert "| abc1234 | not used |" in md

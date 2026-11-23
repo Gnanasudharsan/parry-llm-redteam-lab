@@ -24,6 +24,7 @@ class LlamaGuard:
         self.url = ollama_url.rstrip("/")
         self.model = model
         self.name = name
+        self.version = f"ollama:{model}"
 
     def check(self, hook: Hook, text: str) -> Decision:
         def run() -> Decision:
@@ -73,6 +74,7 @@ class PromptInjectionClassifier:
         self.threshold = threshold
         self.model = model
         self.name = name
+        self.version = f"{model}@threshold={threshold}"
 
     def check(self, hook: Hook, text: str) -> Decision:
         def run() -> Decision:
@@ -126,6 +128,8 @@ class OutputValidator:
 
     hooks: frozenset[Hook] = frozenset({"output"})
     name = "output_validator"
+    # 1: prefix-only formats (buggy: "STAFF-" matched the word "staff"); 2: prefix + hex body.
+    version = "2"
 
     def __init__(
         self,

@@ -139,8 +139,8 @@ def to_markdown(matrix: dict[str, Any]) -> str:
             f"#### {name}",
             "",
             "| configuration | ASR [95% CI] | critical ASR | benign passed | FP rate | utility retained "
-            "| median latency (s) | guard ms / req | guard tokens / req |",
-            "|---|---|---|---|---|---|---|---|---|",
+            "| median latency (s) | guard ms / req | guard tokens / req | commit | validator |",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
         ]
         rows = sorted(
             cells.items(), key=lambda kv: (kv[1]["asr"]["rate"], -kv[1]["utility"]["rate"])
@@ -152,7 +152,8 @@ def to_markdown(matrix: dict[str, Any]) -> str:
                 f"| {cfg}{star} | {c['asr']['k']}/{c['asr']['n']} {_fmt(c['asr'])} | "
                 f"{c['critical_asr']['k']}/{c['critical_asr']['n']} | "
                 f"{c['utility']['k']}/{c['utility']['n']} | {c['false_positive']['rate']:.0%} | {ret} | "
-                f"{c['latency_median_s']} | {c['guard_ms_per_request']} | {c['guard_tokens_per_request']} |"
+                f"{c['latency_median_s']} | {c['guard_ms_per_request']} | {c['guard_tokens_per_request']} | "
+                f"{c.get('git_commit')} | {c.get('validator_version', '-')} |"
             )
         lines.append("")
     lines.append("★ = Pareto-optimal on (lower ASR, higher utility).")
