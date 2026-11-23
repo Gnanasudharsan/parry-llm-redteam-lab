@@ -69,5 +69,6 @@ def test_rescore_finds_spaced_and_partial(tmp_path: Path) -> None:
         },
     )
     r = rescore_cell(run, S)
-    assert r["v1"] == 1 and "b" in r["new_under_v2"] and r["partial_only"] == ["c"]
-    assert r["lost_under_v2"] == []
+    assert r["v1"] == 1 and r["v2_full"] == 2 and r["v2_full_new"] == ["b"]
+    assert r["v2_partial_0.67"] == 3 and r["v2_partial_0.50"] == 3
+    assert r["v2_full_lost"] == []

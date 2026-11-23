@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from parry.stats import mcnemar_exact
+from parry.stats import holm, mcnemar_exact
 
 
 @pytest.mark.parametrize(
@@ -24,3 +24,11 @@ def test_mcnemar_exact_reference(b: int, c: int, p: float) -> None:
 def test_negative_counts() -> None:
     with pytest.raises(ValueError):
         mcnemar_exact(-1, 2)
+
+
+def test_holm_reference() -> None:
+    # Classic example: raw 0.01, 0.04, 0.03, 0.005 with m=4.
+    adj = holm({"a": 0.01, "b": 0.04, "c": 0.03, "d": 0.005})
+    assert adj == pytest.approx({"d": 0.02, "a": 0.03, "c": 0.06, "b": 0.06})
+    assert holm({}) == {}
+    assert holm({"x": 0.9, "y": 0.8}) == pytest.approx({"y": 1.0, "x": 1.0})

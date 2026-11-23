@@ -260,6 +260,31 @@ def matrix_report(
     typer.echo(f"wrote {matrix_dir / 'matrix.md'} and {matrix_dir / 'pareto.svg'}")
 
 
+@app.command()
+def analyze(
+    matrix_dir: Path = typer.Argument(..., help="A runs/matrix-<id> folder (final cells only)."),
+) -> None:
+    """Paired tests (Holm), judge-rule sensitivity, FP controls and artifact checks."""
+    from parry.analysis import analyze as run_analysis
+    from parry.analysis import to_markdown as paired_md
+
+    res = run_analysis(matrix_dir)
+    (matrix_dir / "analysis.json").write_text(json.dumps(res, indent=2) + "\n")
+    md = [f"# Defense matrix analysis ({matrix_dir.name})", ""]
+    for rule, table in res["paired"].items():
+        md += [f"## Paired tests, judge rule: {rule}", "", paired_md(table)]
+    md += [
+        "## Conclusion changes vs v1",
+        "",
+        "```",
+        json.dumps(res["conclusion_changes"], indent=2),
+        "```",
+        "",
+    ]
+    (matrix_dir / "analysis.md").write_text("\n".join(md))
+    typer.echo(f"wrote {matrix_dir / 'analysis.md'}")
+
+
 @app.command("matrix-compare")
 def matrix_compare(
     original: Path = typer.Argument(..., help="Original cell run folder."),
