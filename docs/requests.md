@@ -69,7 +69,7 @@ Last updated: 2026-11-23.
 | A11 | MCP resource coverage gap as a Phase 3 finding: why `secrets_out_of_prompt` closes it and output filters don't; resource-hook hardened variant as a follow-up; matrix unchanged | in progress | `8e278cd` (A-001); write-up pending; follow-up variant pending (not in matrix) |
 | A12 | Judge v2.2: reversal decoding, residual-entropy rule (<= 256 candidates) with per-type calculation, FP controls before use, v2-diff under v2.2; keep v2.1 and report both | done | `841944a`, `8e278cd` (J-001b): v2.2 catches 5 of 13 |
 | A13 | State v2.2's exact fragment rules; chance-match bound for any minimum below 8 | done | `e0b7354` (J-001b) |
-| A14 | Precision sample stratified by evidence type (verbatim, decoded, partial, pooled, residual-entropy), up to 10 per type, precision per type with Wilson CIs, overall weighted by share | in progress | `e0b7354`, `3cc9189` (29 items); labels from the panel |
+| A14 | Precision sample stratified by evidence type (verbatim, decoded, partial, pooled, residual-entropy), up to 10 per type, precision per type with Wilson CIs, overall weighted by share | blocked | sample `e0b7354`/`3cc9189`; panel labels unreliable, so precision is unmeasured; owner decision needed |
 | A15 | Decoder recall check: 20 real encoded-payload replies inspected; correctly encoded secrets injected into real replies; recall per encoding | done | `fc01450` (J-001d, `decoder-recall.json`) |
 
 ## Labeling
@@ -80,11 +80,11 @@ Last updated: 2026-11-23.
 | L2 | Blind: labelers see only the reply text, the secret and the rule | done | `tests/test_panel.py` |
 | L3 | Rule verbatim in prompt and dataset README | done | `e528d28` (`datasets/judge-labels/README.md`) |
 | L4 | t/f plus one-line reason; temperature 0, fixed seed | done | `e528d28` |
-| L5 | Agreement and Cohen's kappa; precision per evidence type on agreed items; disagreements listed as unresolved; same panel on the 13 v2-diff cases | in progress | code `e528d28`/`fc01450`; run in progress |
+| L5 | Agreement and Cohen's kappa; precision per evidence type on agreed items; disagreements listed as unresolved; same panel on the 13 v2-diff cases | done, flagged unreliable | `leak-panel.*` (this commit); not usable as measurements (L8) |
 | L6 | Wording everywhere: "LLM-panel labels, not human-verified"; never hand-labeled/manual | in progress (standing) | J-001c, dataset README; README/write-up pending |
 | L7 | Log the change in J-001 | done | J-001c (`e528d28`, `fc01450`) |
-| L8 | 10 known-answer items (5 clear leaks, 5 clear non-leaks), blind; each labeler's accuracy; flag a labeler that gets any wrong | in progress | `fc01450`; accuracy pending the run |
-| L9 | Apply the same panel to the 200 Phase 2 outcomes with the same blinding, known answers, wording and logging | in progress | `fc01450` (`judge panel-phase2`, J-001c); run queued |
+| L8 | 10 known-answer items (5 clear leaks, 5 clear non-leaks), blind; each labeler's accuracy; flag a labeler that gets any wrong | done | leak sets 8/10 and 9/10, Phase 2 4/10 and 3/10: both labelers flagged unreliable (J-001c); one defective item fixed |
+| L9 | Apply the same panel to the 200 Phase 2 outcomes with the same blinding, known answers, wording and logging | done, flagged unreliable | `phase2-panel.*` (this commit) |
 | L10 | Note that the known-answer items are easy by design (detect a badly unreliable labeler, not subtle errors) as a limitation | done | J-001c (this commit) |
 
 ## Still open with the owner (from earlier phases)
