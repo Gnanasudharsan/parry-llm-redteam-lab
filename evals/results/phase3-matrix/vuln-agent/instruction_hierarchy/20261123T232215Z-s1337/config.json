@@ -1,0 +1,9 @@
+{
+  "name": "instruction_hierarchy",
+  "hardening": {
+    "instruction_hierarchy": true
+  },
+  "defenses": [],
+  "apps": null,
+  "applied": []
+}

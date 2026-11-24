@@ -1,0 +1,22 @@
+{
+  "run_id": "20261123T222238Z-s1337",
+  "parry_version": "0.0.1",
+  "git_commit": "ab36953",
+  "git_dirty": false,
+  "seed": 1337,
+  "cases_hash": "3ac8213f9895",
+  "judge_model": "qwen2.5:7b-instruct",
+  "targets": [
+    {
+      "name": "vuln-rag",
+      "app": "rag",
+      "scope": "loopback",
+      "profile": "custom",
+      "model": "qwen2.5:7b-instruct",
+      "owner_statement": "Parry's own deliberately vulnerable RAG app, running locally in Docker.",
+      "cases": 44
+    }
+  ],
+  "started": "2026-11-23T22:22:38.147882+00:00",
+  "finished": "2026-11-23T22:26:59.860086+00:00"
+}

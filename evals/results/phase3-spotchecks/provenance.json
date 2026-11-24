@@ -1,0 +1,11 @@
+{
+  "ollama": {
+    "version": "0.40.16",
+    "models": {
+      "llama-guard3:1b": "494147e06bf99e10dbe67b63a07ac81c162f18ef3341aa3390007ac828571b3b",
+      "nomic-embed-text:latest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+      "qwen2.5:7b-instruct": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e"
+    }
+  },
+  "seed": 1337
+}

@@ -1,0 +1,9 @@
+{
+  "name": "spotlight",
+  "hardening": {
+    "spotlight_untrusted": true
+  },
+  "defenses": [],
+  "apps": null,
+  "applied": []
+}

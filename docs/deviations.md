@@ -21,8 +21,13 @@ never mixed into reported numbers.
   constructed only by `make_stack` when a configuration lists `output_validator`; only the
   `output_validator` and `hardened+guards` configurations do. Every result now records the
   layer versions and the commit (`defense_versions`, `validator_version`, `git_commit`).
-- **Runs redone:** _filled in after the reruns_ (see below).
-- **Archived:** _filled in after the reruns_.
+- **Runs redone:** `output_validator` and `hardened+guards` on vuln-mcp, vuln-rag and
+  vuln-agent, in `runs/matrix-20261124T024429Z` at `7a14edc` (R-001). In the reruns the three
+  MCP hiring tasks pass in both configurations; validator version 2 is recorded with nonzero
+  construct/check trace counts.
+- **Archived:** the six original cells, under
+  `evals/results/archive/phase3-original-superseded/` (with the `llama_guard` cells of D-002);
+  never used in reported numbers.
 
 ## D-002: Llama Guard calls had no fixed seed (Phase 3)
 
@@ -32,7 +37,8 @@ never mixed into reported numbers.
 - **Fix:** commit `efd8fa5`. The layer passes `seed` (from `LAB_MODEL_SEED`, default 1337),
   and its recorded version is `ollama:llama-guard3:1b@seed=1337`.
 - **Runs redone:** the `llama_guard` configuration on all three apps, because the code
-  behind it changed. `hardened+guards` is rerun anyway under D-001. Old cells are archived.
+  behind it changed (`runs/matrix-20261124T024429Z`, `7a14edc`). `hardened+guards` is rerun
+  under D-001. Old cells are archived in `evals/results/archive/phase3-original-superseded/`.
 
 ## D-003: A commit landed with a failing test (Phase 3)
 
@@ -113,6 +119,32 @@ under memory pressure (6.8 GB free at the failed load). Model loads can stall fo
 fail. Effects: occasional retries (flagged †), and latency that is not representative of a
 machine with enough memory; this is why stalled requests are excluded from latency and why
 latency is reported as median and p95. Verdicts are unaffected by the wait itself.
+
+## D-005: The original matrix also recorded commits made during the run (Phase 3)
+
+- **Found:** 2026-11-24, assembling the final matrix. The original matrix
+  (`runs/matrix-20261123T212651Z`, 21:26:51-01:03 UTC) ran for about 3.5 hours while commits
+  were made; each cell read HEAD and the working-tree state when its scan started (the D-004
+  mechanism). Its 42 cells record 11 commits from `3b4ed31` to `8e278cd`, and 13 record a
+  dirty tree. An earlier status note said the original cells record `3b4ed31` clean; that was
+  true only of the early cells and is corrected here.
+- **What ran:** `3b4ed31` for every cell. The first cell records `3b4ed31` with a clean tree.
+  At `3b4ed31` the run path imports all of its modules at process start (`parry matrix`
+  imports `parry.matrix`, which imports the engine, benign runner, adapters, judges and lab
+  client at module level); the only dynamic import is the in-process LangGraph adapter,
+  which no lab target uses (all are `http` or `mcp_http`). Later edits on disk could not
+  reach the running process, and the lab containers were not rebuilt during the run.
+- **Evidence:** the spot-checks rebuilt the lab at `3cc9189` and reproduced the original
+  `none` and `pi_classifier` cells with no verdict change (byte-identical replies in 5 of 6,
+  42/44 in the sixth), including two cells that recorded a dirty tree (`vuln-rag/none`,
+  `vuln-mcp/pi_classifier`).
+- **Model digests:** the original run predates digest recording (`efd8fa5`); its cells record
+  the model name `qwen2.5:7b-instruct` only. The installed model was unchanged from 11 days
+  before the run (`ollama list`), and the digest-recording spot-checks (`845dbda0ea48...`)
+  reproduced the original replies.
+- **Handling:** result files are left as written. `evals/results/phase3-matrix/SOURCES.json`
+  gives, per cell, `code_commit` (what ran) next to `recorded_git_commit` and
+  `recorded_git_dirty`. Fix: D-004 (`de3b41c`) pins the commit at process start.
 
 ## Checked, no rerun needed: OpenAI-compatible adapter seed (Phase 3)
 

@@ -1,0 +1,19 @@
+{
+  "name": "output_validator",
+  "hardening": {},
+  "defenses": [
+    "output_validator"
+  ],
+  "apps": null,
+  "applied": [
+    "output_validator"
+  ],
+  "defense_versions": {
+    "output_validator": "2"
+  },
+  "trace": {
+    "output_validator.construct": 1,
+    "output_validator.check": 99
+  },
+  "model": "qwen2.5:7b-instruct"
+}

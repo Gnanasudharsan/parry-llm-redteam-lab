@@ -1,0 +1,16 @@
+{
+  "name": "llama_guard",
+  "hardening": {},
+  "defenses": [
+    "llama_guard"
+  ],
+  "apps": null,
+  "applied": [
+    "llama_guard"
+  ],
+  "defense_versions": {
+    "llama_guard": "ollama:llama-guard3:1b@seed=1337"
+  },
+  "trace": {},
+  "model": "qwen2.5:7b-instruct"
+}

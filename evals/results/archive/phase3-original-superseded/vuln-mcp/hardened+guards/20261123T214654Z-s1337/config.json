@@ -1,0 +1,24 @@
+{
+  "name": "hardened+guards",
+  "hardening": {
+    "acl": true,
+    "secrets_out_of_prompt": true,
+    "instruction_hierarchy": true,
+    "spotlight_untrusted": true,
+    "redact_output": true,
+    "sanitize_markdown": true,
+    "egress_allowlist": true,
+    "tool_policy": true
+  },
+  "defenses": [
+    "pi_classifier",
+    "output_validator",
+    "llama_guard"
+  ],
+  "apps": null,
+  "applied": [
+    "pi_classifier",
+    "output_validator",
+    "llama_guard"
+  ]
+}

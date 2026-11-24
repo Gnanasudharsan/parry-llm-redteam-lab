@@ -1,0 +1,22 @@
+{
+  "run_id": "20261123T214221Z-s1337",
+  "parry_version": "0.0.1",
+  "git_commit": "3b4ed31",
+  "git_dirty": true,
+  "seed": 1337,
+  "cases_hash": "3ac8213f9895",
+  "judge_model": "qwen2.5:7b-instruct",
+  "targets": [
+    {
+      "name": "vuln-mcp",
+      "app": "mcp",
+      "scope": "loopback",
+      "profile": "vulnerable",
+      "model": "qwen2.5:7b-instruct",
+      "owner_statement": "Parry's own deliberately vulnerable MCP server, running locally.",
+      "cases": 35
+    }
+  ],
+  "started": "2026-11-23T21:42:21.169722+00:00",
+  "finished": "2026-11-23T21:42:41.766648+00:00"
+}

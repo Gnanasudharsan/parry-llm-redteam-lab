@@ -1,0 +1,16 @@
+{
+  "name": "hardened",
+  "hardening": {
+    "acl": true,
+    "secrets_out_of_prompt": true,
+    "instruction_hierarchy": true,
+    "spotlight_untrusted": true,
+    "redact_output": true,
+    "sanitize_markdown": true,
+    "egress_allowlist": true,
+    "tool_policy": true
+  },
+  "defenses": [],
+  "apps": null,
+  "applied": []
+}

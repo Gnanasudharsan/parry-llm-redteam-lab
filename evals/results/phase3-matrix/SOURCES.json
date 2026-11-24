@@ -1,0 +1,317 @@
+{
+  "note": "code_commit = the commit the matrix process loaded at start (what ran). recorded_git_commit / recorded_git_dirty = HEAD and working tree when the cell started (D-004, D-005: commits were made during the original run).",
+  "cells": {
+    "vuln-agent/acl": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T233847Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "24d003a",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/egress_allowlist": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261124T001326Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "24d003a",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/hardened": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261124T005316Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "05d5f80",
+      "recorded_git_dirty": true
+    },
+    "vuln-agent/hardened+guards": {
+      "source": "matrix-20261124T024429Z",
+      "run": "20261124T041719Z-s1337",
+      "replaces": "matrix-20261123T212651Z/vuln-agent/hardened+guards/20261124T005959Z-s1337",
+      "reason": "D-001 (validator v1) and D-002 (Llama Guard without a fixed seed)",
+      "code_commit": "7a14edc",
+      "recorded_git_commit": "7a14edc",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/instruction_hierarchy": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T232215Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "bce78ae",
+      "recorded_git_dirty": true
+    },
+    "vuln-agent/llama_guard": {
+      "source": "matrix-20261124T024429Z",
+      "run": "20261124T040046Z-s1337",
+      "replaces": "matrix-20261123T212651Z/vuln-agent/llama_guard/20261124T003057Z-s1337",
+      "reason": "D-002: Llama Guard calls had no fixed seed",
+      "code_commit": "7a14edc",
+      "recorded_git_commit": "7a14edc",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/none": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T230247Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "232a131",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/output_validator": {
+      "source": "matrix-20261124T024429Z",
+      "run": "20261124T040744Z-s1337",
+      "replaces": "matrix-20261123T212651Z/vuln-agent/output_validator/20261124T004331Z-s1337",
+      "reason": "D-001: output validator v1 matched the word 'staff'",
+      "code_commit": "7a14edc",
+      "recorded_git_commit": "7a14edc",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/pi_classifier": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261124T003745Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "24d003a",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/redact_output": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T235534Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "24d003a",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/sanitize_markdown": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261124T000433Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "24d003a",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/secrets_out_of_prompt": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T234742Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "24d003a",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/spotlight": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T231212Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "a14abc1",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/spotlight+hierarchy": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T233130Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "24d003a",
+      "recorded_git_dirty": false
+    },
+    "vuln-agent/tool_policy": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261124T002212Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "24d003a",
+      "recorded_git_dirty": false
+    },
+    "vuln-mcp/acl": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T213431Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": true
+    },
+    "vuln-mcp/egress_allowlist": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T213903Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": true
+    },
+    "vuln-mcp/hardened": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T214445Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": true
+    },
+    "vuln-mcp/hardened+guards": {
+      "source": "matrix-20261124T024429Z",
+      "run": "20261124T024743Z-s1337",
+      "replaces": "matrix-20261123T212651Z/vuln-mcp/hardened+guards/20261123T214654Z-s1337",
+      "reason": "D-001 (validator v1) and D-002 (Llama Guard without a fixed seed)",
+      "code_commit": "7a14edc",
+      "recorded_git_commit": "7a14edc",
+      "recorded_git_dirty": false
+    },
+    "vuln-mcp/instruction_hierarchy": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T213035Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": true
+    },
+    "vuln-mcp/llama_guard": {
+      "source": "matrix-20261124T024429Z",
+      "run": "20261124T024429Z-s1337",
+      "replaces": "matrix-20261123T212651Z/vuln-mcp/llama_guard/20261123T214045Z-s1337",
+      "reason": "D-002: Llama Guard calls had no fixed seed",
+      "code_commit": "7a14edc",
+      "recorded_git_commit": "7a14edc",
+      "recorded_git_dirty": false
+    },
+    "vuln-mcp/none": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T212651Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": false
+    },
+    "vuln-mcp/output_validator": {
+      "source": "matrix-20261124T024429Z",
+      "run": "20261124T024559Z-s1337",
+      "replaces": "matrix-20261123T212651Z/vuln-mcp/output_validator/20261123T214305Z-s1337",
+      "reason": "D-001: output validator v1 matched the word 'staff'",
+      "code_commit": "7a14edc",
+      "recorded_git_commit": "7a14edc",
+      "recorded_git_dirty": false
+    },
+    "vuln-mcp/pi_classifier": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T214221Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": true
+    },
+    "vuln-mcp/redact_output": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T213727Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": true
+    },
+    "vuln-mcp/secrets_out_of_prompt": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T213605Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": true
+    },
+    "vuln-mcp/spotlight": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T212834Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": false
+    },
+    "vuln-mcp/spotlight+hierarchy": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T213218Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": true
+    },
+    "vuln-rag/acl": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T221027Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "540d6c7",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/egress_allowlist": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T223351Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "82b0a88",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/hardened": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T225310Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "82b0a88",
+      "recorded_git_dirty": true
+    },
+    "vuln-rag/hardened+guards": {
+      "source": "matrix-20261124T024429Z",
+      "run": "20261124T033852Z-s1337",
+      "replaces": "matrix-20261123T212651Z/vuln-rag/hardened+guards/20261123T225858Z-s1337",
+      "reason": "D-001 (validator v1) and D-002 (Llama Guard without a fixed seed)",
+      "code_commit": "7a14edc",
+      "recorded_git_commit": "7a14edc",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/instruction_hierarchy": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T215939Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "6f8055a",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/llama_guard": {
+      "source": "matrix-20261124T024429Z",
+      "run": "20261124T024836Z-s1337",
+      "replaces": "matrix-20261123T212651Z/vuln-rag/llama_guard/20261123T223913Z-s1337",
+      "reason": "D-002: Llama Guard calls had no fixed seed",
+      "code_commit": "7a14edc",
+      "recorded_git_commit": "7a14edc",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/none": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T214746Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "3b4ed31",
+      "recorded_git_dirty": true
+    },
+    "vuln-rag/output_validator": {
+      "source": "matrix-20261124T024429Z",
+      "run": "20261124T025336Z-s1337",
+      "replaces": "matrix-20261123T212651Z/vuln-rag/output_validator/20261123T224748Z-s1337",
+      "reason": "D-001: output validator v1 matched the word 'staff'",
+      "code_commit": "7a14edc",
+      "recorded_git_commit": "7a14edc",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/pi_classifier": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T224344Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "82b0a88",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/redact_output": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T222238Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "ab36953",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/sanitize_markdown": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T222822Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "82b0a88",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/secrets_out_of_prompt": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T221629Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "540d6c7",
+      "recorded_git_dirty": false
+    },
+    "vuln-rag/spotlight": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T215340Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "7f280aa",
+      "recorded_git_dirty": true
+    },
+    "vuln-rag/spotlight+hierarchy": {
+      "source": "matrix-20261123T212651Z",
+      "run": "20261123T220451Z-s1337",
+      "code_commit": "3b4ed31",
+      "recorded_git_commit": "540d6c7",
+      "recorded_git_dirty": false
+    }
+  }
+}

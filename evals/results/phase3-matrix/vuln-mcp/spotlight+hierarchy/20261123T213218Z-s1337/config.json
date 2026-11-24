@@ -1,0 +1,10 @@
+{
+  "name": "spotlight+hierarchy",
+  "hardening": {
+    "spotlight_untrusted": true,
+    "instruction_hierarchy": true
+  },
+  "defenses": [],
+  "apps": null,
+  "applied": []
+}

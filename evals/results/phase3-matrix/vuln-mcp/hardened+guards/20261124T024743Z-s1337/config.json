@@ -1,0 +1,34 @@
+{
+  "name": "hardened+guards",
+  "hardening": {
+    "acl": true,
+    "secrets_out_of_prompt": true,
+    "instruction_hierarchy": true,
+    "spotlight_untrusted": true,
+    "redact_output": true,
+    "sanitize_markdown": true,
+    "egress_allowlist": true,
+    "tool_policy": true
+  },
+  "defenses": [
+    "pi_classifier",
+    "output_validator",
+    "llama_guard"
+  ],
+  "apps": null,
+  "applied": [
+    "pi_classifier",
+    "output_validator",
+    "llama_guard"
+  ],
+  "defense_versions": {
+    "pi_classifier": "protectai@threshold=0.5",
+    "output_validator": "2",
+    "llama_guard": "ollama:llama-guard3:1b@seed=1337"
+  },
+  "trace": {
+    "output_validator.construct": 1,
+    "output_validator.check": 25
+  },
+  "model": "qwen2.5:7b-instruct"
+}

@@ -1,0 +1,11 @@
+{
+  "name": "tool_policy",
+  "hardening": {
+    "tool_policy": true
+  },
+  "defenses": [],
+  "apps": [
+    "agent"
+  ],
+  "applied": []
+}

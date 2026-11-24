@@ -1,0 +1,22 @@
+{
+  "run_id": "20261124T000433Z-s1337",
+  "parry_version": "0.0.1",
+  "git_commit": "24d003a",
+  "git_dirty": false,
+  "seed": 1337,
+  "cases_hash": "3ac8213f9895",
+  "judge_model": "qwen2.5:7b-instruct",
+  "targets": [
+    {
+      "name": "vuln-agent",
+      "app": "agent",
+      "scope": "loopback",
+      "profile": "custom",
+      "model": "qwen2.5:7b-instruct",
+      "owner_statement": "Parry's own deliberately vulnerable tool-using agent, running locally.",
+      "cases": 49
+    }
+  ],
+  "started": "2026-11-24T00:04:33.345420+00:00",
+  "finished": "2026-11-24T00:10:30.021243+00:00"
+}

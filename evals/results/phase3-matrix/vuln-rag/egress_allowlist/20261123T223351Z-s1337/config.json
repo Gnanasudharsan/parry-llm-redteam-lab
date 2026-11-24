@@ -1,0 +1,9 @@
+{
+  "name": "egress_allowlist",
+  "hardening": {
+    "egress_allowlist": true
+  },
+  "defenses": [],
+  "apps": null,
+  "applied": []
+}

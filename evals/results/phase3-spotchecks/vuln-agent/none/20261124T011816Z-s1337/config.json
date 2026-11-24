@@ -1,0 +1,10 @@
+{
+  "name": "none",
+  "hardening": {},
+  "defenses": [],
+  "apps": null,
+  "applied": [],
+  "defense_versions": {},
+  "trace": {},
+  "model": "qwen2.5:7b-instruct"
+}

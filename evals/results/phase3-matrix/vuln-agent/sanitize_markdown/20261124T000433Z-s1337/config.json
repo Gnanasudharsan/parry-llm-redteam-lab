@@ -1,0 +1,12 @@
+{
+  "name": "sanitize_markdown",
+  "hardening": {
+    "sanitize_markdown": true
+  },
+  "defenses": [],
+  "apps": [
+    "rag",
+    "agent"
+  ],
+  "applied": []
+}

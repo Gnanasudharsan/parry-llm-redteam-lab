@@ -1,0 +1,11 @@
+{
+  "name": "llama_guard",
+  "hardening": {},
+  "defenses": [
+    "llama_guard"
+  ],
+  "apps": null,
+  "applied": [
+    "llama_guard"
+  ]
+}

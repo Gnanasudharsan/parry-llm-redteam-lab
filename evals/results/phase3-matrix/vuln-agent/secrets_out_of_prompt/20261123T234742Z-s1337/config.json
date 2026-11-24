@@ -1,0 +1,9 @@
+{
+  "name": "secrets_out_of_prompt",
+  "hardening": {
+    "secrets_out_of_prompt": true
+  },
+  "defenses": [],
+  "apps": null,
+  "applied": []
+}

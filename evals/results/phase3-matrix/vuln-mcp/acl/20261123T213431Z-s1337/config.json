@@ -1,0 +1,9 @@
+{
+  "name": "acl",
+  "hardening": {
+    "acl": true
+  },
+  "defenses": [],
+  "apps": null,
+  "applied": []
+}

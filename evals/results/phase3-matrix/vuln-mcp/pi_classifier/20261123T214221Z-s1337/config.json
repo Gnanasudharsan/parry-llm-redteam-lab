@@ -1,0 +1,11 @@
+{
+  "name": "pi_classifier",
+  "hardening": {},
+  "defenses": [
+    "pi_classifier"
+  ],
+  "apps": null,
+  "applied": [
+    "pi_classifier"
+  ]
+}

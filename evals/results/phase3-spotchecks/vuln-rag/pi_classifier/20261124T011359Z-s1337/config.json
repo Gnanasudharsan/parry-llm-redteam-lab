@@ -1,0 +1,16 @@
+{
+  "name": "pi_classifier",
+  "hardening": {},
+  "defenses": [
+    "pi_classifier"
+  ],
+  "apps": null,
+  "applied": [
+    "pi_classifier"
+  ],
+  "defense_versions": {
+    "pi_classifier": "protectai@threshold=0.5"
+  },
+  "trace": {},
+  "model": "qwen2.5:7b-instruct"
+}

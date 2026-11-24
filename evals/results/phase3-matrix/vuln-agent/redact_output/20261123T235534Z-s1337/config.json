@@ -1,0 +1,9 @@
+{
+  "name": "redact_output",
+  "hardening": {
+    "redact_output": true
+  },
+  "defenses": [],
+  "apps": null,
+  "applied": []
+}

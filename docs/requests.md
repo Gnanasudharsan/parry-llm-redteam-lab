@@ -22,8 +22,8 @@ Last updated: 2026-11-23.
 | # | Request | Status | Satisfied by |
 |---|---|---|---|
 | C1 | Spot-check bridge: `none` + `pi_classifier` per app; (a) zero OutputValidator constructions/calls, (b) verdict changes within noise allowance and overlapping CIs; rerun the full matrix if either fails | done (all six pass) | `ab36953` (`matrix-compare`), `82b0a88`, `232a131`; results in `docs/deviations.md` "Spot-check design" (`de3b41c`) |
-| C2 | Validator version and commit SHA in every results file; log bug, fix and redone runs in deviations | in progress | `991d62a`, `efd8fa5`, `de3b41c`; D-001 "Runs redone / Archived" to fill after reruns |
-| C3 | Discard buggy-validator results; archive under `evals/results/archive/`; never mix | pending | after reruns |
+| C2 | Validator version and commit SHA in every results file; log bug, fix and redone runs in deviations | done | `991d62a`, `efd8fa5`, `de3b41c`; D-001/D-002 filled; per-cell code vs recorded commit in `SOURCES.json` (D-005) |
+| C3 | Discard buggy-validator results; archive under `evals/results/archive/`; never mix | done | `evals/results/archive/phase3-original-superseded/` (9 cells); final matrix `evals/results/phase3-matrix/` |
 | C4 | Same seeds, model versions and benign task set | in progress | `provenance.json` per matrix (`efd8fa5`, `de3b41c`) |
 | C5 | Groq run | withdrawn for targets/attacks (no hosted APIs); retry-then-report rule kept. Hosted labelers only, by later decision: X-001 / L12 | retry rule `f23a121` |
 | C6 | garak on the same targets; garak's detectors and Parry's judges re-scoring garak's responses against the lab canaries | pending | `540d6c7` (code) |
