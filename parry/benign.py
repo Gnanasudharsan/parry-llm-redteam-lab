@@ -7,11 +7,13 @@ user would wait. Guard flags and blocked actions come from the lab event log.
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from parry.adapters import ChatAdapter, McpAdapter
+from parry.engine import guard_failures
 from parry.lab import LabClient
 from parry.tasks import BenignTask, Outcome, TaskSet, evaluate
 
@@ -31,6 +33,8 @@ class BenignResult(BaseModel):
     guard_tokens: int = 0
     guard_ms: float = 0.0
     attempt: int = 1
+    started: str | None = None  # UTC ISO time the request began (exact stall matching)
+    guard_errors: list[str] = Field(default_factory=list)  # layers that failed open
 
     @property
     def errored(self) -> bool:
@@ -69,6 +73,7 @@ def run_benign(
     def one(task: BenignTask, attempt: int) -> BenignResult:
         if lab is not None:
             lab.reset()
+        started = datetime.now(UTC).isoformat()
         t0 = time.perf_counter()
         answer, executed, err = _run_one(adapter, task)
         latency = time.perf_counter() - t0
@@ -79,6 +84,11 @@ def run_benign(
         )
         events = lab.events() if lab is not None else []
         defense = [e for e in events if e["type"] == "defense"]
+        failed_open = guard_failures(events)
+        if failed_open:  # errored task: retried once under the retry rule
+            outcome = Outcome(
+                passed=False, failures=[f"error: guard failed open: {'; '.join(failed_open)[:100]}"]
+            )
         return BenignResult(
             id=task.id,
             category=task.category,
@@ -95,6 +105,8 @@ def run_benign(
             blocked=[e["name"] for e in events if e["type"] in ("tool_blocked", "egress_blocked")],
             guard_tokens=sum(int(e["data"].get("tokens", 0)) for e in defense),
             attempt=attempt,
+            started=started,
+            guard_errors=failed_open,
             guard_ms=round(sum(float(e["data"].get("latency_ms", 0.0)) for e in defense), 1),
         )
 

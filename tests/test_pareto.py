@@ -22,7 +22,10 @@ def _cell(asr: float, util: float) -> dict[str, Any]:
         "false_positive": r(0),
         "utility_retained": util,
         "latency_median_s": 1.0,
-        "guard_ms_per_request": 5.0,
+        "latency_p95_s": 2.0,
+        "guard_ms_median": 5.0,
+        "guard_ms_p95": 9.0,
+        "had_retry": util == 0.95,
         "guard_tokens_per_request": 0,
         "git_commit": "abc1234",
         "validator_version": "not used",
@@ -50,5 +53,5 @@ def test_render() -> None:
     assert svg.startswith("<svg") and svg.count("<circle") == 4 and ">hardened</text>" in svg
     assert "spotlight</text>" not in svg  # dominated points are not labeled, only titled
     md = to_markdown(MATRIX)
-    assert "| hardened ★ |" in md and "| spotlight |" in md
+    assert "| hardened ★ † |" in md and "| spotlight |" in md and "| 1.0 / 2.0 | 5.0 / 9.0 |" in md
     assert "| abc1234 | not used |" in md

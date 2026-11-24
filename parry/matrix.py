@@ -154,16 +154,33 @@ def cell_run(cfg_dir: Path) -> Path:
     return require_complete(run)
 
 
-def cell_summary(run_dir: Path) -> dict[str, Any]:
+def _median_p95(values: list[float]) -> tuple[float | None, float | None]:
+    v = sorted(values)
+    if not v:
+        return None, None
+    return round(statistics.median(v), 3), round(v[min(len(v) - 1, int(0.95 * len(v)))], 3)
+
+
+def cell_summary(run_dir: Path, stalls: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Rates use the latest attempt of each case and benign task. Latency (median, p95) uses
+    benign requests that did not error and could not have hit a model-load stall."""
+    from parry.stalls import stalled_benign, stalls_in_cell
+
     require_complete(run_dir)
     trials = scored(load_trials(run_dir))
-    benign = [
+    all_rows = [
         BenignResult.model_validate_json(x)
         for x in (run_dir / "benign.jsonl").read_text().splitlines()
     ]
+    benign = latest(all_rows)
     core = [b for b in benign if not b.approval_gated]
-    lat = sorted(b.latency_s for b in core)
+    stalled = stalled_benign(run_dir, all_rows, stalls or [])
+    timed_rows = [b for b in core if not b.errored and (b.id, b.attempt) not in stalled]
+    lat_median, lat_p95 = _median_p95([b.latency_s for b in timed_rows])
+    guard_median, guard_p95 = _median_p95([b.guard_ms for b in timed_rows])
     meta = json.loads((run_dir / "run.json").read_text())
+    attack_retries = [c for t in meta.get("targets", []) for c in t.get("retried", [])]
+    benign_retries = sorted({b.id for b in all_rows if b.attempt > 1})
     conf_path = run_dir / "config.json"
     conf = json.loads(conf_path.read_text()) if conf_path.exists() else {}
     versions = conf.get("defense_versions") or {}
@@ -195,22 +212,41 @@ def cell_summary(run_dir: Path) -> dict[str, Any]:
         ),
         "false_positive": _r(sum(bool(b.defense_flags or b.blocked) for b in core), len(core)),
         "benign_leaks": sum(b.leaked for b in core),
-        "latency_median_s": round(statistics.median(lat), 3) if lat else None,
-        "latency_p95_s": round(lat[min(len(lat) - 1, int(0.95 * len(lat)))], 3) if lat else None,
+        "latency_median_s": lat_median,
+        "latency_p95_s": lat_p95,
+        "latency_n": len(timed_rows),
+        "latency_excluded": {
+            "errored": sum(b.errored for b in core),
+            "possible_stall": sum((b.id, b.attempt) in stalled for b in core if not b.errored),
+        },
+        "guard_ms_median": guard_median,
+        "guard_ms_p95": guard_p95,
         "guard_tokens_per_request": round(sum(b.guard_tokens for b in core) / len(core), 1)
         if core
         else 0,
-        "guard_ms_per_request": round(sum(b.guard_ms for b in core) / len(core), 1) if core else 0,
+        "retried": {"attacks": attack_retries, "benign": benign_retries},
+        "had_retry": bool(attack_retries or benign_retries),
+        "ollama_stalls": stalls_in_cell(run_dir, stalls) if stalls else [],
     }
 
 
+STALLS_FILE = "ollama-stalls.json"
+
+
 def summarize_matrix(out: Path) -> dict[str, Any]:
-    result: dict[str, Any] = {"matrix": out.name, "targets": {}}
+    """`ollama-stalls.json` in the matrix folder (from `matrix-report --ollama-log`) feeds the
+    latency exclusions; without it no request is treated as stalled."""
+    stalls_path = out / STALLS_FILE
+    stalls = json.loads(stalls_path.read_text())["stalls"] if stalls_path.exists() else None
+    result: dict[str, Any] = {"matrix": out.name, "targets": {}, "stalls_recorded": bool(stalls)}
     for target_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         cells: dict[str, Any] = {}
         for cfg_dir in sorted(p for p in target_dir.iterdir() if p.is_dir()):
             run_dir = cell_run(cfg_dir)
-            cells[cfg_dir.name] = {"run": str(run_dir.relative_to(out)), **cell_summary(run_dir)}
+            cells[cfg_dir.name] = {
+                "run": str(run_dir.relative_to(out)),
+                **cell_summary(run_dir, stalls),
+            }
         base = cells.get("none")
         for c in cells.values():
             if base:

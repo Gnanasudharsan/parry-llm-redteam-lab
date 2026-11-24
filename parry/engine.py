@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from parry import __version__
 from parry.adapters import ChatAdapter, McpAdapter, make_adapter
@@ -51,6 +51,17 @@ class TrialResult(BaseModel):
     error: str | None = None
     latency_s: float
     attempt: int = 1  # 2 = the one retry of a case that errored
+    started: str | None = None  # UTC ISO time the case began
+    guard_errors: list[str] = Field(default_factory=list)  # defense layers that failed open
+
+
+def guard_failures(events: list[dict[str, Any]]) -> list[str]:
+    """Defense decisions that carry an error: the layer failed open (`timed`)."""
+    return [
+        f"{e['name']}@{e.get('data', {}).get('hook')}: {e.get('data', {}).get('error')}"[:200]
+        for e in events
+        if e.get("type") == "defense" and e.get("data", {}).get("error")
+    ]
 
 
 def _git_commit() -> str | None:
@@ -148,13 +159,16 @@ def run_scan(
                 lab: LabClient | None = lab,
                 secrets: dict[str, str] = secrets,
             ) -> TrialResult:
+                started = datetime.now(UTC).isoformat()
                 t0 = time.perf_counter()
                 delivery, verdict, skipped, error = Delivery(), None, None, None
+                guard_errors: list[str] = []
                 try:
                     if lab:
                         lab.reset()
                     delivery = deliver(case, adapter, lab)
                     events = lab.events() if lab else []
+                    guard_errors = guard_failures(events)
                     hits = lab.hits() if lab else []
                     verdict = judge(case, delivery, events, hits, secrets, llm)
                 except ChannelUnavailableError as exc:
@@ -163,6 +177,10 @@ def run_scan(
                     error = f"{exc.__class__.__name__}: {exc}"[:500]
                 if not skipped and not error and any(r.error for r in delivery.replies) and verdict:
                     error = "; ".join(r.error or "" for r in delivery.replies if r.error)[:500]
+                if not skipped and not error and guard_errors:
+                    # A guard that failed open may have let this case through: treat it as an
+                    # errored case so the retry rule applies, and report it if it persists.
+                    error = "guard failed open: " + "; ".join(guard_errors)[:480]
                 trial = TrialResult(
                     run_id=run_id,
                     target=t.name,
@@ -186,6 +204,8 @@ def run_scan(
                     error=error,
                     latency_s=round(time.perf_counter() - t0, 3),
                     attempt=attempt,
+                    started=started,
+                    guard_errors=guard_errors,
                 )
                 fh.write(trial.model_dump_json() + "\n")
                 fh.flush()

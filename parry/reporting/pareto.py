@@ -107,7 +107,8 @@ def to_svg(matrix: dict[str, Any]) -> str:
             on = cfg in front
             tip = (
                 f"{cfg}: ASR {_fmt(c['asr'])}, utility {_fmt(c['utility'])}, "
-                f"median latency {c['latency_median_s']}s, guard {c['guard_ms_per_request']} ms/request"
+                f"latency median {c['latency_median_s']}s / p95 {c.get('latency_p95_s')}s, "
+                f"guard median {c.get('guard_ms_median')} ms/request"
             )
             parts.append(
                 f'<line class="{"wf" if on else "wd"}" x1="{x:.1f}" x2="{x:.1f}" y1="{hi:.1f}" y2="{lo:.1f}"/>'
@@ -139,22 +140,29 @@ def to_markdown(matrix: dict[str, Any]) -> str:
             f"#### {name}",
             "",
             "| configuration | ASR [95% CI] | critical ASR | benign passed | FP rate | utility retained "
-            "| median latency (s) | guard ms / req | guard tokens / req | commit | validator |",
+            "| latency median / p95 (s) | guard ms median / p95 | guard tokens / req | commit "
+            "| validator |",
             "|---|---|---|---|---|---|---|---|---|---|---|",
         ]
         rows = sorted(
             cells.items(), key=lambda kv: (kv[1]["asr"]["rate"], -kv[1]["utility"]["rate"])
         )
         for cfg, c in rows:
-            star = " ★" if cfg in front else ""
+            star = (" ★" if cfg in front else "") + (" †" if c.get("had_retry") else "")
             ret = f"{c['utility_retained']:.2f}" if c.get("utility_retained") is not None else "-"
             lines.append(
                 f"| {cfg}{star} | {c['asr']['k']}/{c['asr']['n']} {_fmt(c['asr'])} | "
                 f"{c['critical_asr']['k']}/{c['critical_asr']['n']} | "
                 f"{c['utility']['k']}/{c['utility']['n']} | {c['false_positive']['rate']:.0%} | {ret} | "
-                f"{c['latency_median_s']} | {c['guard_ms_per_request']} | {c['guard_tokens_per_request']} | "
+                f"{c['latency_median_s']} / {c.get('latency_p95_s')} | "
+                f"{c.get('guard_ms_median')} / {c.get('guard_ms_p95')} | {c['guard_tokens_per_request']} | "
                 f"{c.get('git_commit')} | {c.get('validator_version', '-')} |"
             )
         lines.append("")
-    lines.append("★ = Pareto-optimal on (lower ASR, higher utility).")
+    lines.append(
+        "★ = Pareto-optimal on (lower ASR, higher utility). † = the cell had a retry (an errored "
+        "case or benign task was retried once; rates use the latest attempt). Latency: median "
+        "and p95 over benign requests that did not error and could not have overlapped a model-"
+        "load stall."
+    )
     return "\n".join(lines) + "\n"
