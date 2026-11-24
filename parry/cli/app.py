@@ -972,7 +972,7 @@ def classifier_train(
     seed: list[int] = typer.Option([1337, 1338, 1339], help="Seeds (repeatable)."),
     epochs: int = typer.Option(2),
 ) -> None:
-    """Fine-tune DeBERTa-v3-small once per seed; log to MLflow (local file store)."""
+    """Fine-tune DeBERTa-v3-small once per seed; log to MLflow (local SQLite store)."""
     import mlflow
 
     from parry.classifier.data import MANIFEST, load_split
@@ -981,7 +981,13 @@ def classifier_train(
 
     commit, dirty = _git_commit(), _git_dirty()
     tr, va = load_split("train"), load_split("val")
-    mlflow.set_tracking_uri("file:./mlruns")
+    # MLflow 3.18 retired the plain file store; a local SQLite store (git-ignored) replaces it.
+    Path("mlruns").mkdir(exist_ok=True)
+    mlflow.set_tracking_uri("sqlite:///mlruns/mlflow.db")
+    if mlflow.get_experiment_by_name("parry-classifier") is None:
+        mlflow.create_experiment(
+            "parry-classifier", artifact_location=Path("mlartifacts").resolve().as_uri()
+        )
     mlflow.set_experiment("parry-classifier")
     for s in seed:
         out = ARTIFACTS / f"deberta-v3-small-seed{s}"
