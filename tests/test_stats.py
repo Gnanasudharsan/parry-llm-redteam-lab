@@ -32,3 +32,14 @@ def test_holm_reference() -> None:
     assert adj == pytest.approx({"d": 0.02, "a": 0.03, "c": 0.06, "b": 0.06})
     assert holm({}) == {}
     assert holm({"x": 0.9, "y": 0.8}) == pytest.approx({"y": 1.0, "x": 1.0})
+
+
+def test_cohen_kappa_reference() -> None:
+    from parry.stats import cohen_kappa
+
+    # 2x2 table: both t=20, a only=5, b only=10, both f=15 -> p_o=0.70, p_e=0.50, kappa=0.40
+    a = [True] * 20 + [True] * 5 + [False] * 10 + [False] * 15
+    b = [True] * 20 + [False] * 5 + [True] * 10 + [False] * 15
+    assert abs((cohen_kappa(a, b) or 0) - 0.4) < 1e-9
+    assert cohen_kappa([True, True], [True, True]) is None  # undefined, not 1
+    assert cohen_kappa([], []) is None

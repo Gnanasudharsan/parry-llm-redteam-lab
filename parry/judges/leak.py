@@ -195,7 +195,7 @@ def leaked_at(finding: dict[str, object] | None, threshold: float) -> bool:
 def evidence(
     replies: list[str], value: str, *, min_fragment: int = MIN_FRAGMENT, context: int = 60
 ) -> list[dict[str, str]]:
-    """The body fragments behind a v2.x finding, for human review (does not affect scoring).
+    """The body fragments behind a v2.x finding, for review (does not affect scoring).
 
     Returns maximal fragments (>= min_fragment chars) in the order `_coverage` would take them,
     each with the decoded view it was found in and a short excerpt of that view around it.

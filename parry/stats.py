@@ -32,3 +32,22 @@ def holm(pvalues: dict[str, float]) -> dict[str, float]:
         running = max(running, min(1.0, (m - i) * pvalues[key]))
         adjusted[key] = running
     return adjusted
+
+
+def cohen_kappa(a: list[bool], b: list[bool]) -> float | None:
+    """Cohen's kappa for two raters' binary labels on the same items.
+
+    kappa = (p_o - p_e) / (1 - p_e); None when undefined (no items, or p_e == 1, i.e. both
+    raters gave one identical label to everything).
+    """
+    if len(a) != len(b):
+        raise ValueError("raters must label the same items")
+    n = len(a)
+    if n == 0:
+        return None
+    p_o = sum(x == y for x, y in zip(a, b, strict=True)) / n
+    pa, pb = sum(a) / n, sum(b) / n
+    p_e = pa * pb + (1 - pa) * (1 - pb)
+    if p_e == 1:
+        return None
+    return (p_o - p_e) / (1 - p_e)

@@ -273,7 +273,7 @@ def judge_v2_diff(
     matrix_dir: Path = typer.Argument(..., help="A runs/matrix-<id> folder."),
     out: Path = typer.Option(None, help="Output stem (default: <matrix_dir>/judge-v2-diff)."),
 ) -> None:
-    """Trials judge v2 (4-char fragments) calls a leak and v2.1 does not, for manual review."""
+    """Trials judge v2 (4-char fragments) calls a leak and v2.1 does not, for review."""
     from parry.analysis import judge_disagreements
 
     with _complete_cells():
@@ -319,7 +319,7 @@ def judge_precision_sample(
     seed: int = typer.Option(1337),
     exclude: list[str] = typer.Option([], help="Configurations to leave out (repeatable)."),
 ) -> None:
-    """Sample leak-judge positives for human labeling, stratified by evidence type."""
+    """Sample leak-judge positives for labeling, stratified by evidence type."""
     from parry.analysis import precision_sample
 
     if out.exists():
@@ -339,6 +339,88 @@ def judge_precision_sample(
         _review_md(res["sample"], "Leak judge precision sample", intro)
     )
     typer.echo(f"{intro}\nwrote {out} and {out.with_suffix('.md')}")
+
+
+@judge_app.command("panel")
+def judge_panel(
+    matrix_dir: Path = typer.Argument(..., help="The finished matrix the items come from."),
+    sample: Path = typer.Option(Path("datasets/judge-labels/leak-precision.json")),
+    v2_diff: Path = typer.Option(Path("datasets/judge-labels/leak-v2-diff.json")),
+    out: Path = typer.Option(Path("datasets/judge-labels/leak-panel.json")),
+    model: list[str] = typer.Option([], help="Labeler models (default: llama3.1:8b, mistral:7b)."),
+) -> None:
+    """Blind LLM-panel labels for the precision sample and the v2-diff cases.
+
+    LLM-panel labels, not human-verified."""
+    from parry.analysis import precision_report
+    from parry.judges.panel import DEFAULT_MODELS, PANEL_WORDING, agreement, run_panel
+
+    models = tuple(model) or DEFAULT_MODELS
+    smp = json.loads(sample.read_text())
+    diff = json.loads(v2_diff.read_text())
+    with _complete_cells():
+        a = run_panel(matrix_dir, smp["sample"], models=models)
+        b = run_panel(matrix_dir, diff, models=models)
+    report = {
+        "wording": PANEL_WORDING,
+        "source": matrix_dir.name,
+        "precision_sample": {
+            "agreement": agreement(a["items"], models),
+            "precision_on_agreed_items": precision_report(
+                a["items"], smp["population"], key="panel_agreed"
+            ),
+            "unresolved": [it["id"] for it in a["items"] if it["panel_agreed"] is None],
+        },
+        "v2_diff": {
+            "agreement": agreement(b["items"], models),
+            "agreed_true_leak": sum(it["panel_agreed"] is True for it in b["items"]),
+            "agreed_not_leak": sum(it["panel_agreed"] is False for it in b["items"]),
+            "unresolved": sum(it["panel_agreed"] is None for it in b["items"]),
+        },
+    }
+    meta = {k: v for k, v in a.items() if k != "items"}
+    out.write_text(
+        json.dumps(
+            {**meta, "report": report, "precision_sample": a["items"], "v2_diff": b["items"]},
+            indent=2,
+        )
+        + "\n"
+    )
+    lines = [
+        f"# Leak judge review: {PANEL_WORDING}",
+        "",
+        f"Labelers: {', '.join(f'{m} ({d[:12]})' for m, d in meta['models'].items())}; "
+        f"Ollama {meta['ollama_version']}; temperature 0, seed {meta['seed']}. Each labeler saw "
+        "only the replies, the secret and the rule below; not the judge's verdict, the "
+        "evidence type, the configuration, or the other labeler's answer.",
+        "",
+        f"Rule: *{meta['labeling_rule']}*",
+        "",
+        "```json",
+        json.dumps(report, indent=2),
+        "```",
+        "",
+    ]
+    for title, items in (("Precision sample", a["items"]), ("v2 vs v2.1 cases", b["items"])):
+        lines += [f"## {title}", "", "| item | type | " + " | ".join(models) + " | agreed |"]
+        lines.append("|---|---|" + "---|" * len(models) + "---|")
+        for it in items:
+            name = it.get("id") or f"{it['target']}/{it['config']}/{it['case_id']}"
+            cells = [
+                f"{'t' if v['label'] else 'f' if v['label'] is False else '?'}: "
+                f"{v['reason'].replace('|', '/')}"
+                for v in it["panel"].values()
+            ]
+            agreed = {True: "t", False: "f", None: "unresolved"}[it["panel_agreed"]]
+            lines.append(
+                f"| {name} | {it.get('evidence_type', it['secret'])} | "
+                + " | ".join(cells)
+                + f" | {agreed} |"
+            )
+        lines.append("")
+    out.with_suffix(".md").write_text("\n".join(lines))
+    typer.echo(json.dumps(report, indent=2))
+    typer.echo(f"wrote {out} and {out.with_suffix('.md')}")
 
 
 @judge_app.command("precision-label")

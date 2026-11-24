@@ -420,7 +420,7 @@ def precision_sample(
     seed: int = 1337,
     exclude_configs: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    """Sample leak-judge positives for human labeling, stratified by evidence type.
+    """Sample leak-judge positives for labeling, stratified by evidence type.
 
     Population: (trial, goal secret) pairs in leak-goal trials that judge v2.2 counts as
     leaked under its loosest rule (partial >= 1/2); v2.2 positives include every v2.1
@@ -481,7 +481,9 @@ def precision_sample(
     }
 
 
-def precision_report(items: list[dict[str, Any]], population: dict[str, int]) -> dict[str, Any]:
+def precision_report(
+    items: list[dict[str, Any]], population: dict[str, int], key: str = "label"
+) -> dict[str, Any]:
     """Precision per evidence type (95% Wilson) and overall, weighted by each type's share of
     positives. The overall interval combines the per-type Wilson bounds with the same weights
     (conservative)."""
@@ -491,9 +493,7 @@ def precision_report(items: list[dict[str, Any]], population: dict[str, int]) ->
     out: dict[str, Any] = {"types": {}, "labeled": 0, "positives": total}
     w_point = w_low = w_high = 0.0
     for kind in EVIDENCE_TYPES:
-        labels = [
-            it["label"] for it in items if it["evidence_type"] == kind and it["label"] is not None
-        ]
+        labels = [it[key] for it in items if it["evidence_type"] == kind and it[key] is not None]
         out["labeled"] += len(labels)
         n_pop = population.get(kind, 0)
         if not labels:
