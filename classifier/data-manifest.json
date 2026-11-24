@@ -1,0 +1,84 @@
+{
+  "seed": 1337,
+  "spml": {
+    "rows": 16012,
+    "dropped_gandalf_source": 4168,
+    "pos_kept": 4000,
+    "neg_kept": 3470
+  },
+  "removed": {
+    "length": 13,
+    "duplicate:spml": 101,
+    "duplicate:oasst": 37
+  },
+  "sets": {
+    "train": {
+      "n": 9585,
+      "by_source_label": {
+        "deepset:0": 318,
+        "deepset:1": 210,
+        "oasst:0": 3162,
+        "spml:0": 2695,
+        "spml:1": 3200
+      },
+      "sha256": "edf9449459e817a71330ae10fb463f1993cdf713c8666610b3f2134d63826977"
+    },
+    "val": {
+      "n": 1198,
+      "by_source_label": {
+        "deepset:0": 40,
+        "deepset:1": 26,
+        "oasst:0": 395,
+        "spml:0": 337,
+        "spml:1": 400
+      },
+      "sha256": "edefed368fe4c55045ce02f640d4f9c56471aa8e7ba90d083d1e74f671779671"
+    },
+    "test": {
+      "n": 1198,
+      "by_source_label": {
+        "deepset:0": 40,
+        "deepset:1": 26,
+        "oasst:0": 395,
+        "spml:0": 337,
+        "spml:1": 400
+      },
+      "sha256": "2d8d3753eda9ed079269a1027b1a1c8e3ea0d22cb83fce183fbe23f0964c2419"
+    },
+    "heldout_gandalf": {
+      "n": 1000,
+      "by_source_label": {
+        "gandalf:1": 1000
+      },
+      "sha256": "f3e5ad7a350dd8132ade9500b7f32bbd6c53712c45a6cc1569cdb58b0c2d9313"
+    },
+    "heldout_parry_attacks": {
+      "n": 84,
+      "by_source_label": {
+        "parry_attacks:1": 84
+      },
+      "sha256": "94b3b9cad6f7bd966a59cfae3a93bac7930959ced9be6be936c629c43da645fe"
+    },
+    "heldout_notinject": {
+      "n": 339,
+      "by_source_label": {
+        "notinject:0": 339
+      },
+      "sha256": "053e7b5a65ee0bc7bbe117799d10413cae1fb7e00f0f761ee66994b6f8158196"
+    },
+    "heldout_parry_benign": {
+      "n": 141,
+      "by_source_label": {
+        "parry_benign:0": 141
+      },
+      "sha256": "c20e0ef44c624b007d7e7e225a3ccd168ee6b7f7087a05b16d677c0f8b10a3b9"
+    },
+    "heldout_lab_content": {
+      "n": 29,
+      "by_source_label": {
+        "lab_content:0": 29
+      },
+      "sha256": "c1c17b6b9e3c1f60416395030e0617c9bfb22469507b212a5aff3048fba2d3eb"
+    }
+  }
+}

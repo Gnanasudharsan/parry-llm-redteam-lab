@@ -1,0 +1,34 @@
+# External data and base model for the Phase 4 classifier. Licenses were read on each
+# Hugging Face page on 2026-11-24; revisions are pinned. Files are downloaded by
+# `parry classifier fetch` into datasets/external/ (git-ignored) and never committed.
+datasets:
+  - id: deepset/prompt-injections
+    revision: 4f61ecb038e9c3fb77e21034b22511b523772cdd
+    license: apache-2.0
+    files: [data/train-00000-of-00001-9564e8b05b4757ab.parquet, data/test-00000-of-00001-701d16158af87368.parquet]
+    role: train/val/test (labeled 0/1; 1 = injection)
+  - id: reshabhs/SPML_Chatbot_Prompt_Injection
+    revision: 02ce8084e979bc7d4c24ee35d22ecb7f2db96ff5
+    license: mit
+    files: [spml_prompt_injection.csv]
+    role: train/val/test (labeled)
+  - id: OpenAssistant/oasst1
+    revision: fdf72ae0827c1cda404aff25b6603abec9e3399b
+    license: apache-2.0
+    files: [2023-04-12_oasst_prompts.messages.jsonl.gz]
+    role: benign user prompts (English, first turn)
+  - id: Lakera/gandalf_ignore_instructions
+    revision: 04737b65e90a6794ec227012e4a255a7def6344b
+    license: mit
+    files: [data/train-00000-of-00001-ded53be747ff55cd.parquet, data/validation-00000-of-00001-94481a2a09ff2fff.parquet, data/test-00000-of-00001-bc92128b9288a6d1.parquet]
+    role: held-out source, test only (all injections)
+  - id: leolee99/NotInject
+    revision: 847ae76cf8fea5ed325429e569ae8cfef022d2e0
+    license: mit
+    files: [data/NotInject_one-00000-of-00001.parquet, data/NotInject_two-00000-of-00001.parquet, data/NotInject_three-00000-of-00001.parquet]
+    role: over-defense test only (all benign, with trigger words)
+models:
+  - id: microsoft/deberta-v3-small
+    revision: a36c739020e01763fe789b4b85e2df55d6180012
+    license: mit
+    role: base model

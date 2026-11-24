@@ -1,6 +1,6 @@
-# Phase 3 requests ledger
+# Requests ledger
 
-Every instruction the owner gave during Phase 3, with its status and what satisfies it.
+Every instruction the owner gave from Phase 3 on, with its status and what satisfies it.
 Re-read at the start of every session and after any context compaction; update as items
 close. Status: **done**, **in progress**, **pending**, **withdrawn**.
 Last updated: 2026-11-24 (Phase 3 release).
@@ -123,3 +123,14 @@ Last updated: 2026-11-24 (Phase 3 release).
 ## Still open with the owner (from earlier phases)
 
 - Private vulnerability reporting setting on the GitHub repository (owner action).
+
+## Phase 4: prompt-injection classifier
+
+| # | Request | Status | Satisfied by |
+|---|---|---|---|
+| K1 | Classifier on licensed data only (licenses verified at the source) | in progress | datasets/README.md |
+| K2 | Held-out attack families and a held-out source in evaluation | pending | |
+| K3 | Calibrated threshold | pending | |
+| K4 | MLflow tracking; weights never committed | pending | |
+| K5 | Hugging Face Hub model card (upload is an owner action) | pending | |
+| K6 | Downloads approved by the owner: deepset/prompt-injections, SPML, OASST1 prompts file, Lakera gandalf, NotInject, microsoft/deberta-v3-small; PyPI mlflow, pyarrow, sentencepiece | approved | owner, 2026-11-24 |

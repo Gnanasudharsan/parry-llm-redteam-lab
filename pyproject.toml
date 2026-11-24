@@ -43,6 +43,9 @@ lab = [
     "uvicorn>=0.54",
 ]
 ml = [
+    "mlflow>=3.18.0",
+    "pyarrow>=26.0.1",
+    "sentencepiece>=0.2.3",
     "torch>=2.15",
     "transformers>=5.24",
 ]
@@ -71,6 +74,11 @@ python_version = "3.12"
 strict = true
 packages = ["parry", "targets", "tests"]
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# pyarrow ships no type information.
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # MCPServer.custom_route is not typed in the SDK.

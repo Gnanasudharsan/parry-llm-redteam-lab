@@ -38,3 +38,7 @@ classifier/outputs/
 datasets/raw/
 
 .DS_Store
+
+# Phase 4: downloaded data and trained weights (never commit)
+datasets/external/
+classifier/artifacts/
