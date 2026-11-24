@@ -238,6 +238,9 @@ def summarize_matrix(out: Path) -> dict[str, Any]:
     latency exclusions; without it no request is treated as stalled."""
     stalls_path = out / STALLS_FILE
     stalls = json.loads(stalls_path.read_text())["stalls"] if stalls_path.exists() else None
+    # An assembled matrix (evals/results) maps each cell to the code that ran (D-005).
+    sources_path = out / "SOURCES.json"
+    sources = json.loads(sources_path.read_text())["cells"] if sources_path.exists() else {}
     result: dict[str, Any] = {"matrix": out.name, "targets": {}, "stalls_recorded": bool(stalls)}
     for target_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         cells: dict[str, Any] = {}
@@ -247,6 +250,9 @@ def summarize_matrix(out: Path) -> dict[str, Any]:
                 "run": str(run_dir.relative_to(out)),
                 **cell_summary(run_dir, stalls),
             }
+            src = sources.get(f"{target_dir.name}/{cfg_dir.name}")
+            if src:
+                cells[cfg_dir.name]["code_commit"] = src["code_commit"]
         base = cells.get("none")
         for c in cells.values():
             if base:

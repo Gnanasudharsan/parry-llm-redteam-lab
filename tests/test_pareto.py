@@ -50,8 +50,8 @@ def test_frontier() -> None:
 
 def test_render() -> None:
     svg = to_svg(MATRIX)
-    assert svg.startswith("<svg") and svg.count("<circle") == 4 and ">hardened</text>" in svg
-    assert "spotlight</text>" not in svg  # dominated points are not labeled, only titled
+    assert svg.startswith("<svg") and svg.count("<circle") == 4 and ">hardened<tspan" in svg
+    assert "spotlight<tspan" not in svg  # dominated points are not labeled, only titled
     md = to_markdown(MATRIX)
     assert "| hardened ★ † |" in md and "| spotlight |" in md and "| 1.0 / 2.0 | 5.0 / 9.0 |" in md
     assert "| abc1234 | not used |" in md

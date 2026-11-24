@@ -3,7 +3,8 @@
 Writes a static SVG of small multiples (one panel per target): x = benign tasks passed,
 y = attack success rate, whiskers = 95% Wilson interval on ASR. Configurations on the
 Pareto frontier (no other configuration has both lower ASR and higher utility) are filled
-accent dots with labels; dominated ones are hollow gray rings. Cost is in the table.
+accent dots, labeled with their median latency overhead vs `none`; dominated ones are hollow
+gray rings. Full cost (latency p95, guard time and tokens) is in the table.
 """
 
 from __future__ import annotations
@@ -50,10 +51,12 @@ def to_svg(matrix: dict[str, Any]) -> str:
 
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
-        f'width="{width}" height="{height}" role="img" aria-labelledby="t d">',
+        f'width="100%" style="max-width:{width}px;height:auto" role="img" '
+        'aria-labelledby="t d">',
         "<title id='t'>Defense configurations: attack success vs benign utility</title>",
         "<desc id='d'>One panel per lab target. Lower and further right is better. Filled "
-        "dots are Pareto-optimal configurations; hollow rings are dominated.</desc>",
+        "dots are Pareto-optimal configurations, labeled with median latency overhead versus no "
+        "defense; hollow rings are dominated.</desc>",
         "<style>"
         ":root{--bg:#FFFFFF;--ink:#15191F;--muted:#525C6B;--grid:#DCE0E6;--accent:#1F4FD1;--ctx:#8A93A3}"
         "@media (prefers-color-scheme: dark){:root{--bg:#15191F;--ink:#E6E8EB;--muted:#9AA3AF;"
@@ -100,7 +103,7 @@ def to_svg(matrix: dict[str, Any]) -> str:
                 'text-anchor="middle">attack success rate (lower is better)</text>'
             )
         order = sorted(cells.items(), key=lambda kv: (kv[0] in front, kv[1]["asr"]["rate"]))
-        labeled: list[tuple[float, float]] = []
+        labeled: list[tuple[float, float, float]] = []
         for cfg, c in order:
             x, y = sx(c["utility"]["rate"]), sy(c["asr"]["rate"])
             lo, hi = sy(c["asr"]["low"]), sy(c["asr"]["high"])
@@ -118,14 +121,51 @@ def to_svg(matrix: dict[str, Any]) -> str:
                 f"<title>{html.escape(tip)}</title></circle>"
             )
             if on:
-                ly = y + 4
-                while any(abs(ly - py) < 12 and abs(x - px) < 90 for px, py in labeled):
-                    ly += 12
-                labeled.append((x, ly))
-                anchor, lx = ("end", x - 9) if x > PAD_L + pw * 0.6 else ("start", x + 9)
+                over = c.get("latency_overhead_s")
+                cost = ""
+                if over is not None and cfg != "none":
+                    cost = " 0.00 s" if abs(over) < 0.005 else f" {over:+.2f} s"
+                text_w = 6.2 * (len(cfg) + len(cost))  # ~11 px Inter Tight
+                side = "end" if x > PAD_L + pw * 0.6 else "start"
+                other = "start" if side == "end" else "end"
+                # candidates: beside the dot, above, below, then the other side; the first
+                # that stays inside the plot and clear of other labels wins
+                cands = [
+                    (side, y + 4),
+                    (side, y - 10),
+                    (side, y + 16),
+                    (other, y + 4),
+                    (other, y - 10),
+                ]
+                if y > PAD_T + ph - 20:  # on the baseline: centered just above the dot first
+                    cands.insert(0, ("middle", y - 10))
+
+                def extent(anchor: str, x: float = x, w: float = text_w) -> tuple[float, ...]:
+                    if anchor == "middle":
+                        return x, x - w / 2, x + w / 2
+                    lx = x - 9 if anchor == "end" else x + 9
+                    return (lx, lx - w, lx) if anchor == "end" else (lx, lx, lx + w)
+
+                choice = None
+                for anchor, ly in cands:
+                    lx, x0, x1 = extent(anchor)
+                    inside = PAD_T + 10 <= ly <= PAD_T + ph - 4 and x0 >= 2 and x1 <= W_PANEL - 2
+                    clear = not any(
+                        abs(ly - py) < 12 and x0 < px1 and px0 < x1 for px0, px1, py in labeled
+                    )
+                    if inside and clear:
+                        choice = (anchor, lx, ly, x0, x1)
+                        break
+                if choice is None:  # fall back to the first candidate, clamped into the plot
+                    anchor, ly = cands[0]
+                    ly = min(max(ly, PAD_T + 10), PAD_T + ph - 4)
+                    lx, x0, x1 = extent(anchor)
+                    choice = (anchor, lx, ly, x0, x1)
+                anchor, lx, ly, x0, x1 = choice
+                labeled.append((x0, x1, ly))
                 parts.append(
                     f'<text class="lbl" x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}">'
-                    f"{html.escape(cfg)}</text>"
+                    f'{html.escape(cfg)}<tspan class="m">{cost}</tspan></text>'
                 )
         parts.append("</g>")
     parts.append("</svg>")
@@ -140,7 +180,7 @@ def to_markdown(matrix: dict[str, Any]) -> str:
             f"#### {name}",
             "",
             "| configuration | ASR [95% CI] | critical ASR | benign passed | FP rate | utility retained "
-            "| latency median / p95 (s) | guard ms median / p95 | guard tokens / req | commit "
+            "| latency median / p95 (s) | guard ms median / p95 | guard tokens / req | code commit "
             "| validator |",
             "|---|---|---|---|---|---|---|---|---|---|---|",
         ]
@@ -156,7 +196,7 @@ def to_markdown(matrix: dict[str, Any]) -> str:
                 f"{c['utility']['k']}/{c['utility']['n']} | {c['false_positive']['rate']:.0%} | {ret} | "
                 f"{c['latency_median_s']} / {c.get('latency_p95_s')} | "
                 f"{c.get('guard_ms_median')} / {c.get('guard_ms_p95')} | {c['guard_tokens_per_request']} | "
-                f"{c.get('git_commit')} | {c.get('validator_version', '-')} |"
+                f"{c.get('code_commit') or c.get('git_commit')} | {c.get('validator_version', '-')} |"
             )
         lines.append("")
     lines.append(
