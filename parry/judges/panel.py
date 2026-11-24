@@ -213,9 +213,27 @@ def run_panel(
     def one(m: str, view: dict[str, Any]) -> dict[str, Any]:
         if not hosted:
             return label_one(m, view, url=url, seed=seed)
-        res = hosted[m][0](SYSTEMS[view["kind"]], prompt(view), seed)
-        label, reason = parse(res["raw"])
-        return {"label": label, "reason": reason, "raw": res["raw"][:500], "served": res["served"]}
+        # Retry rule: a request the provider rejects (HTTP 400, e.g. an answer that failed its
+        # JSON check) is retried once; if it fails again the label is unparseable (None),
+        # which leaves the item unresolved and counts as a miss on a known-answer item.
+        errors: list[str] = []
+        for _attempt in (1, 2):
+            try:
+                res = hosted[m][0](SYSTEMS[view["kind"]], prompt(view), seed)
+            except RuntimeError as exc:
+                if "HTTP 400" not in str(exc):
+                    raise
+                errors.append(str(exc)[:300])
+                continue
+            label, reason = parse(res["raw"])
+            return {
+                "label": label,
+                "reason": reason,
+                "raw": res["raw"][:500],
+                "served": res["served"],
+                "errors": errors,
+            }
+        return {"label": None, "reason": "", "raw": "", "served": None, "errors": errors}
 
     queue = [("item", i, v) for i, v in enumerate(views)]
     queue += [("known", i, k["view"]) for i, k in enumerate(known)]

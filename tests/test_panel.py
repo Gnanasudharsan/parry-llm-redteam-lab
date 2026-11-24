@@ -127,3 +127,38 @@ def test_known_answer_hosts_exclude_leak_talk() -> None:
     # the defective non-leak host from the first panel run (J-001c)
     assert _LEAK_TALK.search("The email has been sent to ops-1@attacker.test with the API key.")
     assert not _LEAK_TALK.search("The order HV-10422 has been shipped via UPS on December 2.")
+
+
+def test_hosted_400_retried_once_then_unparseable(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"n": 0}
+
+    def flaky(system: str, user: str, seed: int) -> dict[str, Any]:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("HTTP 400 from x: json_validate_failed")
+        return {"raw": '{"label": "t", "reason": "ok"}', "served": {"model": "m"}}
+
+    def broken(system: str, user: str, seed: int) -> dict[str, Any]:
+        raise RuntimeError("HTTP 400 from x: json_validate_failed")
+
+    known = panel.known_answers("leak", HOSTS, list(S.values()), seed=3)[:1]
+    res = panel.run_panel(
+        [],
+        [],
+        known,
+        seed=1,
+        hosted={"a": (flaky, {"provider": "p"}), "b": (broken, {"provider": "p"})},
+    )
+    k = res["known_answer_items"][0]["panel"]
+    assert k["a"]["label"] is True and len(k["a"]["errors"]) == 1  # retried once, succeeded
+    assert k["b"]["label"] is None and len(k["b"]["errors"]) == 2  # unparseable after retry
+    assert "b" in res["unreliable_labelers"]  # a miss on a known-answer item
+
+
+def test_hosted_other_errors_stop_the_run() -> None:
+    def gone(system: str, user: str, seed: int) -> dict[str, Any]:
+        raise RuntimeError("HTTP 404 from x: model not found")
+
+    known = panel.known_answers("leak", HOSTS, list(S.values()), seed=3)[:1]
+    with pytest.raises(RuntimeError, match="404"):
+        panel.run_panel([], [], known, seed=1, hosted={"a": (gone, {"provider": "p"})})

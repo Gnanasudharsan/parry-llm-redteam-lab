@@ -58,10 +58,21 @@ def _post(url: str, headers: dict[str, str], body: dict[str, Any]) -> dict[str, 
             delay = min(delay * 2, 64)
             continue
         if r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code} from {url.split('?')[0]}")
+            raise RuntimeError(f"HTTP {r.status_code} from {url.split('?')[0]}: {_error_text(r)}")
         data: dict[str, Any] = r.json()
         return data
     raise RuntimeError("unreachable")
+
+
+def _error_text(r: Any) -> str:
+    """The provider's error message (never contains request headers), shortened."""
+    try:
+        err = r.json().get("error", {})
+        msg = err.get("message") if isinstance(err, dict) else str(err)
+        code = err.get("code") if isinstance(err, dict) else None
+        return f"{code or ''} {msg or ''}".strip()[:300]
+    except (ValueError, AttributeError):
+        return ""
 
 
 def groq_model(key: str, model: str = GROQ_MODEL) -> str:
