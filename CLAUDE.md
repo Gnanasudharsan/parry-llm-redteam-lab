@@ -49,6 +49,8 @@ vector store) · reports: HTML, JSON, SARIF · Langfuse self-hosted traces · do
 - Every README claim backed by a number produced by repo code. 95% Wilson CIs, fixed seeds.
 - ADRs in `docs/adr/` for meaningful decisions. Code the owner can explain in an interview.
 - Before commit: `make lint test`.
+- Every shell pipeline runs under `set -o pipefail` (a pipe into `tail`/`grep` must not hide a
+  failing command); never chain `cmd | tail && next`. Commit output is never silenced or cut.
 
 ## Metrics (docs/metrics.md)
 ASR per family/channel/target/defense with CIs · FPR on benign set · utility retained ·

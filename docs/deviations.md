@@ -235,6 +235,17 @@ D-004.)
   `judge precision-sample`) refuses a cell without it. The sample and v2-diff are drawn only
   after the matrix process has exited.
 
+## Tooling note T-003: pipefail slips repeated (Phase 4)
+
+- **What happened:** after D-003 adopted `set -o pipefail` for test-then-commit commands,
+  chains like `uv run mypy parry | tail -1 && git commit ...` were still written without it
+  in Phases 3 and 4. `tail` succeeds, so the chain continued past a failing mypy. Each time the
+  pre-commit mypy hook caught it and the commit did not happen (Phase 4: commit
+  `f5c2bad` was preceded by two blocked attempts); no commit with a failing check landed.
+- **Fix (standing rule, owner):** every shell pipeline runs under `set -o pipefail`; no
+  `cmd | tail && next` chains; commit output is never silenced or cut (CLAUDE.md, requests
+  ledger P15).
+
 ## J-001: Leak judge v2 (Phase 3)
 
 - **Why:** owner-requested judge-artifact check. For cases that `redact_output` or

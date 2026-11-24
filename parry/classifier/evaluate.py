@@ -161,11 +161,19 @@ def _protectai_probs(texts: list[str]) -> list[float]:
 
 def evaluate_model(model_dir: Any, items: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     """Calibrate on validation, pick the threshold on validation, score every set."""
-    from parry.classifier.train import DEFAULTS, load_trained, logits_for
+    from parry.classifier.chunking import chunked_logits
+    from parry.classifier.train import DEFAULTS, load_trained
 
     tok, model = load_trained(model_dir)
+    window = DEFAULTS["max_len"]
+    # Inference uses sliding-window chunking (any window over the threshold flags the input);
+    # the temperature and threshold are fit on validation scored the same way. Truncated
+    # scores (first window only) are kept for comparison.
     logits = {
-        k: logits_for(model, tok, [it["text"] for it in v], DEFAULTS["max_len"])
+        k: chunked_logits(model, tok, [it["text"] for it in v], window)[0] for k, v in items.items()
+    }
+    truncated = {
+        k: chunked_logits(model, tok, [it["text"] for it in v], window, max_windows=1)[0]
         for k, v in items.items()
     }
     vlab = [it["label"] for it in items["val"]]
@@ -183,6 +191,13 @@ def evaluate_model(model_dir: Any, items: dict[str, list[dict[str, Any]]]) -> di
     res["ece_test"] = {
         "before": round(ece(raw["test"], tlab), 4),
         "after": round(ece(cal["test"], tlab), 4),
+    }
+    res["inference"] = "chunked (256-token windows, 64 overlap; max over windows)"
+    t_trunc = fit_temperature(truncated["val"], vlab)
+    cal_trunc = {k: [softmax_pos(lg, t_trunc) for lg in v] for k, v in truncated.items()}
+    res["truncated_for_comparison"] = {
+        "temperature": round(t_trunc, 4),
+        **score_sets(cal_trunc, items, threshold_for_fpr(cal_trunc["val"], vlab)),
     }
     return res
 

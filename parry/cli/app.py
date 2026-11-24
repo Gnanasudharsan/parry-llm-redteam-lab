@@ -1054,6 +1054,26 @@ def classifier_evaluate(
     typer.echo(f"wrote {out}")
 
 
+@classifier_app.command("longinput")
+def classifier_longinput(
+    seed: int = typer.Option(1337, help="Trained seed to evaluate (the published model)."),
+    out: Path = typer.Option(Path("classifier/results/phase4-longinput.json")),
+) -> None:
+    """Held-out injections at the start, middle and end of long benign documents."""
+    from parry.classifier.longinput import run
+    from parry.classifier.train import ARTIFACTS
+    from parry.engine import _git_commit, _git_dirty
+
+    res = run(ARTIFACTS / f"deberta-v3-small-seed{seed}")
+    res |= {"git_commit": _git_commit(), "git_dirty": _git_dirty(), "seed": seed}
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(res, indent=2) + "\n")
+    for name, c in res["configs"].items():
+        cells = "  ".join(f"{k}={v['rate']:.0%}" for k, v in c["results"].items())
+        typer.echo(f"{name:26} {cells}")
+    typer.echo(f"wrote {out}")
+
+
 @guard_app.command("serve")
 def guard_serve(
     host: str = typer.Option("127.0.0.1", help="Bind address (keep it local)."),

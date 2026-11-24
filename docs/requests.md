@@ -53,6 +53,8 @@ Last updated: 2026-11-24 (Phase 3 release).
 | P12 | Requests ledger in `docs/requests.md`; re-read each session and after compaction; update and commit | done (standing) | this file |
 | P13 | Back up uncommitted work without touching HEAD (`git diff` patch + untracked copies) | done | `~/parry-uncommitted-20261123-2315.patch` + `-untracked/`; refreshed at 23:17 (`~/parry-uncommitted-20261123-2317.*`) |
 | P14 | Responsible scope for baselines: no harmful payloads reach any target (garak encoding probes defaulted to slur terms; D-006) | done (standing) | `parry/baselines/garak.py` pinned payloads + offline preflight |
+| P15 | Every shell pipeline uses `set -o pipefail` (standing); log the repeat slip as a process note | done (standing) | CLAUDE.md "How to work"; deviations T-003 |
+| P16 | Restart the lab containers (`make targets-up`) before Phases 5 and 6 (they were stopped during Phase 4 training to free memory) | pending | |
 
 ## Analysis (final data only)
 
@@ -133,4 +135,9 @@ Last updated: 2026-11-24 (Phase 3 release).
 | K3 | Calibrated threshold | pending | |
 | K4 | MLflow tracking; weights never committed | pending | |
 | K5 | Hugging Face Hub model card (upload is an owner action) | pending | |
+| K7 | Report token-length distribution of train/val/held-out sets and the share over 256 tokens | done | docs/classifier.md (train 10.1%, all held-out sets 0%) |
+| K8 | Sliding-window chunking at inference (256-token windows with overlap; flag if any chunk is over threshold); calibrate with the same chunking | in progress | |
+| K9 | Long-input evaluation: held-out injections at start / middle / end of long benign documents (1k-4k tokens); recall by position, with and without chunking, for both classifiers | pending | |
+| K10 | State the truncation limit and chunking behavior in the model card | pending | |
+| K11 | If many training items exceed 256 tokens, tell the owner before deciding on retraining with chunked examples | done (asked) | 970 of 9,585 (10.1%); 945 are injections (length confound) |
 | K6 | Downloads approved by the owner: deepset/prompt-injections, SPML, OASST1 prompts file, Lakera gandalf, NotInject, microsoft/deberta-v3-small; PyPI mlflow, pyarrow, sentencepiece | approved | owner, 2026-11-24 |
