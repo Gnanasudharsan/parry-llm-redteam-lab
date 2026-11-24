@@ -16,7 +16,11 @@ OVERLAP = 64
 def windows(tok: Any, text: str, window: int, overlap: int = OVERLAP) -> list[list[int]]:
     """Token-id windows (with special tokens) covering the whole text."""
     ids: list[int] = tok(text, add_special_tokens=False)["input_ids"]
-    body = window - tok.num_special_tokens_to_add(pair=False)
+    # The tokenizer's own special tokens around an empty input, e.g. [CLS, SEP]; each window
+    # is that prefix + a slice of the text's tokens + that suffix.
+    specials: list[int] = tok("", add_special_tokens=True)["input_ids"]
+    prefix, suffix = specials[:1], specials[1:]
+    body = window - len(specials)
     if body <= overlap:
         raise ValueError("window too small for the overlap")
     step = body - overlap
@@ -24,7 +28,7 @@ def windows(tok: Any, text: str, window: int, overlap: int = OVERLAP) -> list[li
     out = []
     for s in starts:
         chunk = ids[s : s + body]
-        out.append(tok.build_inputs_with_special_tokens(chunk))
+        out.append([*prefix, *chunk, *suffix])
         if s + body >= len(ids):
             break
     return out

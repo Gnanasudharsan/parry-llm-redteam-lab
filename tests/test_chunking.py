@@ -9,13 +9,8 @@ class _Tok:
     """Minimal tokenizer: one token per word, [CLS]=0 ... [SEP]=1 around each window."""
 
     def __call__(self, text: str, add_special_tokens: bool = True) -> dict[str, Any]:
-        return {"input_ids": [int(w) for w in text.split()]}
-
-    def num_special_tokens_to_add(self, pair: bool = False) -> int:
-        return 2
-
-    def build_inputs_with_special_tokens(self, ids: list[int]) -> list[int]:
-        return [0, *ids, 1]
+        ids = [int(w) for w in text.split()]
+        return {"input_ids": [0, *ids, 1] if add_special_tokens else ids}
 
 
 def test_windows_cover_text_with_overlap() -> None:
