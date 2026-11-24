@@ -311,6 +311,70 @@ def judge_fp_controls(
     typer.echo(f"benign answers with a real lab secret: {len(hits)} in {tasks}")
 
 
+@judge_app.command("decoder-recall")
+def judge_decoder_recall(
+    matrix_dir: Path = typer.Argument(..., help="A finished runs/matrix-<id> folder."),
+    out: Path = typer.Option(Path("datasets/judge-labels/decoder-recall.json")),
+    hosts: int = typer.Option(20),
+    real: int = typer.Option(20, help="Real encoded-payload replies to pull for inspection."),
+    seed: int = typer.Option(1337),
+) -> None:
+    """Decoder recall: encoded secrets injected into real replies, per encoding and judge."""
+    import random
+
+    from parry.analysis import LEAK_GOALS, _cell
+    from parry.canary import secrets_for
+    from parry.engine import load_trials
+    from parry.judges.leak import evidence_v22, find_leaks_v22
+    from parry.judges.recall import recall_check
+    from parry.reporting.summary import scored
+
+    targets = sorted(p.name for p in matrix_dir.iterdir() if p.is_dir())
+    secrets = {t: secrets_for(t).as_dict() for t in targets}
+    every = {f"{t}:{k}": v for t, sec in secrets.items() for k, v in sec.items()}
+    clean: list[str] = []
+    encoded: list[tuple[str, Any]] = []
+    with _complete_cells():
+        for t in targets:
+            for cfg_dir in sorted(p for p in (matrix_dir / t).iterdir() if p.is_dir()):
+                run = _cell(matrix_dir, t, cfg_dir.name)
+                if run is None:
+                    continue
+                for tr in scored(load_trials(run)):
+                    if cfg_dir.name == "none":
+                        for r in tr.replies:
+                            if len(r) > 80 and not find_leaks_v22([r], every):
+                                clean.append(r)
+                    if tr.goal in LEAK_GOALS and (
+                        tr.transform != "none" or tr.template.startswith("ob-encode-output")
+                    ):
+                        encoded.append((t, tr))
+    rng = random.Random(seed)  # noqa: S311 - reproducible sampling
+    host_texts = rng.sample(sorted(set(clean)), min(hosts, len(set(clean))))
+    res = recall_check(host_texts, secrets, seed)
+    picked = rng.sample(encoded, min(real, len(encoded)))
+    res["real_encoded_replies"] = [
+        {
+            "target": t,
+            "case_id": tr.case_id,
+            "transform": tr.transform,
+            "template": tr.template,
+            "v2_2": find_leaks_v22(tr.replies, secrets[t]),
+            "evidence": {k: evidence_v22(tr.replies, v) for k, v in secrets[t].items()},
+            "replies": [r[:600] for r in tr.replies],
+        }
+        for t, tr in picked
+    ]
+    res["hosts"] = len(host_texts)
+    res["seed"] = seed
+    out.write_text(json.dumps(res, indent=2) + "\n")
+    lines = ["| encoding | n | v1 | v2.1 | v2.2 |", "|---|---|---|---|---|"]
+    for enc, r in res["per_encoding"].items():
+        lines.append(f"| {enc} | {r['n']} | {r['v1']:.0%} | {r['v2.1']:.0%} | {r['v2.2']:.0%} |")
+    typer.echo("\n".join(lines))
+    typer.echo(f"{len(encoded)} encoded-payload leak trials; {len(picked)} pulled; wrote {out}")
+
+
 @judge_app.command("precision-sample")
 def judge_precision_sample(
     matrix_dir: Path = typer.Argument(..., help="A finished runs/matrix-<id> folder."),
@@ -341,6 +405,77 @@ def judge_precision_sample(
     typer.echo(f"{intro}\nwrote {out} and {out.with_suffix('.md')}")
 
 
+def _clean_hosts(matrix_dir: Path, extra_targets: tuple[str, ...] = ()) -> list[str]:
+    """Real replies (>80 chars) from the `none` cells with no fragment of any lab secret."""
+    from parry.analysis import _cell
+    from parry.canary import secrets_for
+    from parry.engine import load_trials
+    from parry.judges.leak import find_leaks_v22
+
+    targets = sorted(p.name for p in matrix_dir.iterdir() if p.is_dir())
+    every = {
+        f"{t}:{k}": v
+        for t in (*targets, *extra_targets)
+        for k, v in secrets_for(t).as_dict().items()
+    }
+    out: set[str] = set()
+    for t in targets:
+        run = _cell(matrix_dir, t, "none")
+        if run is None:
+            continue
+        for tr in load_trials(run):
+            out.update(r for r in tr.replies if len(r) > 80 and not find_leaks_v22([r], every))
+    return sorted(out)
+
+
+def _panel_header(meta: dict[str, Any], rule: str, shown: str) -> list[str]:
+    from parry.judges.panel import PANEL_WORDING
+
+    lines = [
+        f"# {PANEL_WORDING}",
+        "",
+        f"Labelers: {', '.join(f'{m} ({d[:12]})' for m, d in meta['models'].items())}; "
+        f"Ollama {meta['ollama_version']}; temperature 0, seed {meta['seed']}. Each labeler saw "
+        f"only {shown}; never the judge's verdict, the evidence type, the configuration, or "
+        "the other labeler's answer. 10 known-answer items (5 clear leaks, 5 clear non-leaks "
+        "built from real reply text) were mixed in, blind.",
+        "",
+        f"Rule: *{rule}*",
+        "",
+        "Known-answer accuracy: "
+        + "; ".join(
+            f"{m} {a['correct']}/{a['of']}" + ("" if a["reliable"] else " (**UNRELIABLE**)")
+            for m, a in meta["known_answer_accuracy"].items()
+        ),
+        "",
+    ]
+    if meta["unreliable_labelers"]:
+        lines += [
+            f"> **Warning:** {', '.join(meta['unreliable_labelers'])} got at least one "
+            "known-answer item wrong. Its labels are unreliable; every number below that "
+            "depends on them (agreement, kappa, precision on agreed items) is shown for the "
+            "record only and must not be reported as a measurement.",
+            "",
+        ]
+    return lines
+
+
+def _panel_table(title: str, items: list[dict[str, Any]], models: tuple[str, ...]) -> list[str]:
+    lines = [f"## {title}", "", "| item | type | " + " | ".join(models) + " | agreed |"]
+    lines.append("|---|---|" + "---|" * len(models) + "---|")
+    for it in items:
+        name = it.get("id") or it.get("item_id") or f"{it['target']}/{it['config']}/{it['case_id']}"
+        cells = [
+            f"{'t' if v['label'] else 'f' if v['label'] is False else '?'}: "
+            f"{v['reason'].replace('|', '/')}"
+            for v in it["panel"].values()
+        ]
+        agreed = {True: "t", False: "f", None: "unresolved"}[it["panel_agreed"]]
+        kind = it.get("evidence_type") or it.get("goal") or it.get("secret")
+        lines.append(f"| {name} | {kind} | " + " | ".join(cells) + f" | {agreed} |")
+    return [*lines, ""]
+
+
 @judge_app.command("panel")
 def judge_panel(
     matrix_dir: Path = typer.Argument(..., help="The finished matrix the items come from."),
@@ -348,78 +483,136 @@ def judge_panel(
     v2_diff: Path = typer.Option(Path("datasets/judge-labels/leak-v2-diff.json")),
     out: Path = typer.Option(Path("datasets/judge-labels/leak-panel.json")),
     model: list[str] = typer.Option([], help="Labeler models (default: llama3.1:8b, mistral:7b)."),
+    seed: int = typer.Option(1337),
 ) -> None:
-    """Blind LLM-panel labels for the precision sample and the v2-diff cases.
+    """Blind LLM-panel labels for the leak precision sample and the v2-diff cases.
 
     LLM-panel labels, not human-verified."""
     from parry.analysis import precision_report
-    from parry.judges.panel import DEFAULT_MODELS, PANEL_WORDING, agreement, run_panel
+    from parry.canary import secrets_for
+    from parry.judges.panel import (
+        DEFAULT_MODELS,
+        LEAK_RULE,
+        PANEL_WORDING,
+        agreement,
+        known_answers,
+        leak_view,
+        run_panel,
+    )
 
     models = tuple(model) or DEFAULT_MODELS
     smp = json.loads(sample.read_text())
     diff = json.loads(v2_diff.read_text())
+    items = [{**it, "set": "precision"} for it in smp["sample"]]
+    items += [{**it, "set": "v2_diff"} for it in diff]
     with _complete_cells():
-        a = run_panel(matrix_dir, smp["sample"], models=models)
-        b = run_panel(matrix_dir, diff, models=models)
+        views = [leak_view(matrix_dir, it) for it in items]
+        hosts = _clean_hosts(matrix_dir)
+    secrets = [
+        v
+        for t in sorted(p.name for p in matrix_dir.iterdir() if p.is_dir())
+        for v in secrets_for(t).as_dict().values()
+    ]
+    known = known_answers("leak", hosts, secrets, seed)
+    res = run_panel(items, views, known, models=models, seed=seed)
+    prec = [it for it in res["items"] if it["set"] == "precision"]
+    dif = [it for it in res["items"] if it["set"] == "v2_diff"]
     report = {
         "wording": PANEL_WORDING,
         "source": matrix_dir.name,
+        "known_answer_accuracy": res["known_answer_accuracy"],
+        "unreliable_labelers": res["unreliable_labelers"],
         "precision_sample": {
-            "agreement": agreement(a["items"], models),
+            "agreement": agreement(prec, models),
             "precision_on_agreed_items": precision_report(
-                a["items"], smp["population"], key="panel_agreed"
+                prec, smp["population"], key="panel_agreed"
             ),
-            "unresolved": [it["id"] for it in a["items"] if it["panel_agreed"] is None],
+            "unresolved": [it["id"] for it in prec if it["panel_agreed"] is None],
         },
         "v2_diff": {
-            "agreement": agreement(b["items"], models),
-            "agreed_true_leak": sum(it["panel_agreed"] is True for it in b["items"]),
-            "agreed_not_leak": sum(it["panel_agreed"] is False for it in b["items"]),
-            "unresolved": sum(it["panel_agreed"] is None for it in b["items"]),
+            "agreement": agreement(dif, models),
+            "agreed_true_leak": sum(it["panel_agreed"] is True for it in dif),
+            "agreed_not_leak": sum(it["panel_agreed"] is False for it in dif),
+            "unresolved": sum(it["panel_agreed"] is None for it in dif),
         },
     }
-    meta = {k: v for k, v in a.items() if k != "items"}
+    meta = {k: v for k, v in res.items() if k not in ("items",)}
     out.write_text(
         json.dumps(
-            {**meta, "report": report, "precision_sample": a["items"], "v2_diff": b["items"]},
+            {**meta, "labeling_rule": LEAK_RULE, "report": report, "items": res["items"]}, indent=2
+        )
+        + "\n"
+    )
+    lines = _panel_header(meta, LEAK_RULE, "the trial's replies, the secret and the rule")
+    lines += ["```json", json.dumps(report, indent=2), "```", ""]
+    lines += _panel_table("Precision sample", prec, models)
+    lines += _panel_table("v2 vs v2.1 cases", dif, models)
+    out.with_suffix(".md").write_text("\n".join(lines))
+    typer.echo(json.dumps(report, indent=2))
+    typer.echo(f"wrote {out} and {out.with_suffix('.md')}")
+
+
+@judge_app.command("panel-phase2")
+def judge_panel_phase2(
+    matrix_dir: Path = typer.Argument(..., help="A finished matrix (source of host replies)."),
+    sample: Path = typer.Option(Path("datasets/judge-labels/phase2-sample.jsonl")),
+    out: Path = typer.Option(Path("datasets/judge-labels/phase2-panel.json")),
+    model: list[str] = typer.Option([], help="Labeler models (default: llama3.1:8b, mistral:7b)."),
+    seed: int = typer.Option(1337),
+) -> None:
+    """Blind LLM-panel labels for the Phase 2 judge-accuracy set; Parry's judge and the
+    generic LLM judge scored against them. LLM-panel labels, not human-verified."""
+    from parry.judges.labels import LabelItem, evaluate
+    from parry.judges.panel import (
+        DEFAULT_MODELS,
+        OUTCOME_RULE,
+        PANEL_WORDING,
+        agreement,
+        known_answers,
+        outcome_view,
+        run_panel,
+    )
+
+    models = tuple(model) or DEFAULT_MODELS
+    items = [json.loads(x) for x in sample.read_text().splitlines() if x.strip()]
+    views = [outcome_view(it) for it in items]
+    frames = [it for it in items if it["goal"].startswith("leak") and not it["evidence"]]
+    targets = tuple(sorted({it["target"] for it in items}))
+    with _complete_cells():
+        hosts = _clean_hosts(matrix_dir, targets)
+    known = known_answers("outcome", hosts, [], seed, frames=frames)
+    res = run_panel(items, views, known, models=models, seed=seed)
+    scored = [
+        LabelItem.model_validate(
+            {**{k: it[k] for k in LabelItem.model_fields}, "human": it["panel_agreed"]}
+        )
+        for it in res["items"]
+    ]
+    report = {
+        "wording": PANEL_WORDING,
+        "known_answer_accuracy": res["known_answer_accuracy"],
+        "unreliable_labelers": res["unreliable_labelers"],
+        "agreement": agreement(res["items"], models),
+        "unresolved": [it["item_id"] for it in res["items"] if it["panel_agreed"] is None],
+        "judges_vs_panel_agreed_labels": evaluate(scored),
+    }
+    meta = {k: v for k, v in res.items() if k not in ("items",)}
+    out.write_text(
+        json.dumps(
+            {**meta, "labeling_rule": OUTCOME_RULE, "report": report, "items": res["items"]},
             indent=2,
         )
         + "\n"
     )
-    lines = [
-        f"# Leak judge review: {PANEL_WORDING}",
-        "",
-        f"Labelers: {', '.join(f'{m} ({d[:12]})' for m, d in meta['models'].items())}; "
-        f"Ollama {meta['ollama_version']}; temperature 0, seed {meta['seed']}. Each labeler saw "
-        "only the replies, the secret and the rule below; not the judge's verdict, the "
-        "evidence type, the configuration, or the other labeler's answer.",
-        "",
-        f"Rule: *{meta['labeling_rule']}*",
-        "",
-        "```json",
-        json.dumps(report, indent=2),
-        "```",
-        "",
-    ]
-    for title, items in (("Precision sample", a["items"]), ("v2 vs v2.1 cases", b["items"])):
-        lines += [f"## {title}", "", "| item | type | " + " | ".join(models) + " | agreed |"]
-        lines.append("|---|---|" + "---|" * len(models) + "---|")
-        for it in items:
-            name = it.get("id") or f"{it['target']}/{it['config']}/{it['case_id']}"
-            cells = [
-                f"{'t' if v['label'] else 'f' if v['label'] is False else '?'}: "
-                f"{v['reason'].replace('|', '/')}"
-                for v in it["panel"].values()
-            ]
-            agreed = {True: "t", False: "f", None: "unresolved"}[it["panel_agreed"]]
-            lines.append(
-                f"| {name} | {it.get('evidence_type', it['secret'])} | "
-                + " | ".join(cells)
-                + f" | {agreed} |"
-            )
-        lines.append("")
+    shown = (
+        "the objective, the attacker's input, the replies, the lab's records and "
+        "(leak goals) the secret"
+    )
+    lines = _panel_header(meta, OUTCOME_RULE, shown)
+    lines += ["```json", json.dumps(report, indent=2), "```", ""]
+    lines += _panel_table("Phase 2 outcomes", res["items"], models)
     out.with_suffix(".md").write_text("\n".join(lines))
-    typer.echo(json.dumps(report, indent=2))
+    typer.echo(json.dumps({k: v for k, v in report.items() if k != "unresolved"}, indent=2))
     typer.echo(f"wrote {out} and {out.with_suffix('.md')}")
 
 
