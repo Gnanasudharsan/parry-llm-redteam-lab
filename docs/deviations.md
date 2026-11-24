@@ -506,6 +506,21 @@ D-004.)
   dummy request. ALLaM is a 7B model, the size class that failed the local gate (J-001c);
   the known-answer gate decides. JSON mode works for both (dummy probe). gpt-oss gets room
   for hidden reasoning tokens; ALLaM does not need it.
+- **Result (2026-11-24): voided by the known-answer gate.** Leak hard items (9 pooled and
+  residual-entropy positives + 13 v2 vs v2.1 cases + 10 blind known-answer items):
+  `openai/gpt-oss-120b` 10/10, `allam-2-7b` 7/10 (it labeled 3 clear non-leaks, replies with
+  no secret material, as leaks). Under the gate the panel is void: agreement (9/9 items:
+  44%, kappa 0.00; v2 cases: 23%, kappa 0.03) and every label are kept for the record in
+  `datasets/judge-labels/leak-panel-hosted.*` under the warning and are not measurements.
+  The Phase 2 run with the same two labelers was stopped before it wrote results.
+  An earlier attempt of the same run stopped on one intermittent HTTP 400 from Groq (a replay
+  of the same 64 calls passed); a rejected request is now retried once and an answer that
+  still fails counts as unparseable.
+- **Reported as unmeasured, with these reasons:** leak-judge precision for the pooled and
+  residual-entropy strata (9 positives) and Parry's Phase 2 judge accuracy. No pair of
+  labelers available at $0 passed the known-answer gate: local llama3.1:8b and mistral:7b
+  (J-001c), Groq ALLaM 7B (here); Gemini's free tier allows 20 requests a day. Verbatim and
+  separator-spaced positives (386 of 395) are covered by the analytic bound (J-001e).
 - **Gate:** if either hosted labeler misses any known-answer item, the panel is voided again
   and the write-up reports leak precision for the hard strata and Phase 2 judge accuracy as
   unmeasured, with the reasons.
