@@ -1016,6 +1016,44 @@ def classifier_train(
         typer.echo(f"seed {s}: best epoch {meta['best_epoch']}, val loss {loss:.4f} -> {out}")
 
 
+@classifier_app.command("evaluate")
+def classifier_evaluate(
+    seed: list[int] = typer.Option([1337, 1338, 1339], help="Trained seeds to evaluate."),
+    baseline: bool = typer.Option(True, help="Also score the ProtectAI baseline."),
+    out: Path = typer.Option(Path("classifier/results/phase4-eval.json")),
+) -> None:
+    """Calibrate on validation, set the threshold on validation, score every set."""
+    import hashlib
+
+    from parry.classifier.data import MANIFEST, load_split
+    from parry.classifier.evaluate import SETS, TARGET_FPR, evaluate_baseline, evaluate_model
+    from parry.classifier.train import ARTIFACTS
+    from parry.engine import _git_commit, _git_dirty
+
+    items = {k: load_split(k) for k in SETS}
+    res: dict[str, Any] = {
+        "git_commit": _git_commit(),
+        "git_dirty": _git_dirty(),
+        "data_manifest_sha256": hashlib.sha256(MANIFEST.read_bytes()).hexdigest(),
+        "target_val_fpr": TARGET_FPR,
+        "published_seed": 1337,
+        "seeds": {},
+    }
+    for s in seed:
+        d = ARTIFACTS / f"deberta-v3-small-seed{s}"
+        typer.echo(f"evaluating {d}")
+        res["seeds"][str(s)] = {
+            "training": json.loads((d / "training.json").read_text()),
+            **evaluate_model(d, items),
+        }
+    if baseline:
+        typer.echo("evaluating protectai baseline")
+        res["protectai"] = evaluate_baseline(items)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(res, indent=2) + "\n")
+    typer.echo(f"wrote {out}")
+
+
 @guard_app.command("serve")
 def guard_serve(
     host: str = typer.Option("127.0.0.1", help="Bind address (keep it local)."),

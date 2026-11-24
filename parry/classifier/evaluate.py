@@ -136,3 +136,61 @@ def score_sets(
             }
         out["sets"][name] = row
     return out
+
+
+SETS = ("val", "test", *(f"heldout_{h}" for h in HELDOUT))
+
+
+def _protectai_probs(texts: list[str]) -> list[float]:
+    """p(injection) from the Phase 3 baseline (protectai/deberta-v3-base-prompt-injection-v2)."""
+    from transformers import pipeline
+
+    from parry.defenses.server import MAX_TOKENS, MODELS
+
+    name, positive = MODELS["protectai"]
+    pipe = pipeline(
+        "text-classification", model=name, truncation=True, max_length=MAX_TOKENS, device="cpu"
+    )
+    out: list[float] = []
+    for i in range(0, len(texts), 32):
+        batch: Any = pipe(texts[i : i + 32], top_k=None)
+        for scores in batch:
+            out.append(float(next(s["score"] for s in scores if s["label"] == positive)))
+    return out
+
+
+def evaluate_model(model_dir: Any, items: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    """Calibrate on validation, pick the threshold on validation, score every set."""
+    from parry.classifier.train import DEFAULTS, load_trained, logits_for
+
+    tok, model = load_trained(model_dir)
+    logits = {
+        k: logits_for(model, tok, [it["text"] for it in v], DEFAULTS["max_len"])
+        for k, v in items.items()
+    }
+    vlab = [it["label"] for it in items["val"]]
+    t = fit_temperature(logits["val"], vlab)
+    raw = {k: [softmax_pos(lg) for lg in v] for k, v in logits.items()}
+    cal = {k: [softmax_pos(lg, t) for lg in v] for k, v in logits.items()}
+    threshold = threshold_for_fpr(cal["val"], vlab)
+    res = score_sets(cal, items, threshold)
+    res["temperature"] = round(t, 4)
+    res["ece_val"] = {
+        "before": round(ece(raw["val"], vlab), 4),
+        "after": round(ece(cal["val"], vlab), 4),
+    }
+    tlab = [it["label"] for it in items["test"]]
+    res["ece_test"] = {
+        "before": round(ece(raw["test"], tlab), 4),
+        "after": round(ece(cal["test"], tlab), 4),
+    }
+    return res
+
+
+def evaluate_baseline(items: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    probs = {k: _protectai_probs([it["text"] for it in v]) for k, v in items.items()}
+    vlab = [it["label"] for it in items["val"]]
+    return {
+        "deployed_0.5": score_sets(probs, items, 0.5),
+        "tuned_val_fpr": score_sets(probs, items, threshold_for_fpr(probs["val"], vlab)),
+    }

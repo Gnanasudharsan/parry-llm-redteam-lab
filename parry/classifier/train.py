@@ -71,7 +71,7 @@ def logits_for(
                 texts[i : i + batch_size],
                 truncation=True,
                 max_length=max_len,
-                padding=True,
+                padding="max_length",  # fixed shapes: MPS caches per shape (memory grows)
                 return_tensors="pt",
             ).to(dev)
             out += model(**enc).logits.float().cpu().tolist()
@@ -132,7 +132,7 @@ def train(
                 [b["text"] for b in batch],
                 truncation=True,
                 max_length=p["max_len"],
-                padding=True,
+                padding="max_length",  # fixed shapes: MPS caches per shape (memory grows)
                 return_tensors="pt",
             ).to(dev)
             labels = torch.tensor([b["label"] for b in batch], device=dev)
