@@ -877,7 +877,31 @@ def baseline_garak(
     except ScopeError as exc:
         typer.echo(f"refused: {exc}", err=True)
         raise typer.Exit(EXIT_REFUSED) from exc
-    summary = {}
+    import subprocess
+
+    from parry.engine import _git_commit, _git_dirty
+    from parry.provenance import ollama_info
+
+    version = (
+        subprocess.run(
+            ["garak", "--version"],  # noqa: S607 - garak on PATH (checked by garak.run)
+            capture_output=True,
+            text=True,
+        )
+        .stdout.strip()
+        .splitlines()
+    )
+    summary: dict[str, Any] = {
+        "_provenance": {
+            "git_commit": _git_commit(),
+            "git_dirty": _git_dirty(),
+            "garak": version[-1] if version else None,
+            "probes": garak.PROBES,
+            "prompt_cap": garak.PROMPT_CAP,
+            "seed": cfg.seed,
+            "ollama": ollama_info(str(cfg.judge.llm_url)),
+        }
+    }
     for a in allowed:
         if a.target.kind.value != "http":
             typer.echo(f"skip {a.target.name}: garak's REST generator needs a chat endpoint")
