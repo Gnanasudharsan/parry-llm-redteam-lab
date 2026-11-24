@@ -127,13 +127,15 @@ def score_sets(
             row["auroc"] = auroc(ps, labels)
             row["ece"] = round(ece(ps, labels), 4)
         groups: dict[str, list[tuple[bool, int]]] = defaultdict(list)
-        key = "family" if name == "parry_attacks" else "source" if name == "test" else None
+        key = "family" if name.endswith("parry_attacks") else "source" if name == "test" else None
         if key:
             for f, it in zip(flags, its, strict=True):
                 groups[f"{it[key]}:{it['label']}"].append((f, it["label"]))
             row[f"by_{key}"] = {
                 g: _rate(sum(f for f, _ in v), len(v)) for g, v in sorted(groups.items())
             }
+        # per-item probabilities (in set order) so breakdowns can be recomputed from the file
+        row["probs"] = [round(p, 6) for p in ps]
         out["sets"][name] = row
     return out
 

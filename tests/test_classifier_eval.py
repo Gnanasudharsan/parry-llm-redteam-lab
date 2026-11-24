@@ -32,3 +32,21 @@ def test_temperature_scaling_reduces_nll_of_overconfident_logits() -> None:
 
 def test_ece_zero_when_perfectly_calibrated_bins() -> None:
     assert ece([0.25, 0.25, 0.25, 0.25], [1, 0, 0, 0]) == 0.0
+
+
+def test_score_sets_breaks_down_heldout_attacks_by_family() -> None:
+    from parry.classifier.evaluate import score_sets
+
+    items = {
+        "heldout_parry_attacks": [
+            {"label": 1, "family": "obfuscation"},
+            {"label": 1, "family": "obfuscation"},
+            {"label": 1, "family": "multi_turn"},
+        ]
+    }
+    res = score_sets({"heldout_parry_attacks": [0.9, 0.1, 0.8]}, items, 0.5)
+    row = res["sets"]["heldout_parry_attacks"]
+    assert (
+        row["by_family"]["obfuscation:1"]["k"] == 1 and row["by_family"]["multi_turn:1"]["k"] == 1
+    )
+    assert row["probs"] == [0.9, 0.1, 0.8]

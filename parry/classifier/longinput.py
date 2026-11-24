@@ -82,17 +82,6 @@ def _load_protectai() -> tuple[Any, Any, int]:
     return tok, model, int(idx)
 
 
-def score_modes(
-    model: Any, tok: Any, texts: list[str], window: int, positive: int
-) -> dict[str, list[list[float]]]:
-    from parry.classifier.chunking import chunked_logits
-
-    return {
-        "truncated": chunked_logits(model, tok, texts, window, positive, max_windows=1)[0],
-        "chunked": chunked_logits(model, tok, texts, window, positive)[0],
-    }
-
-
 def _aggregate(per_window: list[float], how: str) -> float:
     """per_window: probabilities of each window; how: max or top2 (mean of the two highest)."""
     top = sorted(per_window, reverse=True)
@@ -127,111 +116,130 @@ def exploratory(
     return {"window_adjusted": adj, "top2_mean": top2, "top2_threshold": t2}
 
 
-def run(our_dir: Any, seed: int = SEED) -> dict[str, Any]:
+def _pick(ws: list[list[float]], mode: str) -> list[float]:
+    """truncated: the first window only; chunked: the most injection-like window."""
+    return ws[0] if mode == "truncated" else max(ws, key=lambda lg: lg[1] - lg[0])
+
+
+def _free_gpu() -> None:
+    import gc
+
+    import torch
+
+    gc.collect()
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
+
+
+def run(our_dir: Any, seed: int = SEED, log: Any = print) -> dict[str, Any]:
     """Recall by length and position, and false positives on long benign documents, for our
-    classifier (256-token windows, temperature and threshold fit on validation in the same
+    classifier (256-token windows; temperature and threshold fit on validation in the same
     mode) and ProtectAI (512-token windows; deployed threshold 0.5 and a threshold tuned on
-    validation in the same mode)."""
-    from parry.classifier.evaluate import fit_temperature, softmax_pos, threshold_for_fpr
+    validation in the same mode). Each model scores every text once, window by window; the
+    truncated, chunked and exploratory rules all come from those window logits."""
+    from parry.classifier.chunking import window_logits
+    from parry.classifier.evaluate import (
+        TARGET_FPR,
+        fit_temperature,
+        softmax_pos,
+        threshold_for_fpr,
+    )
     from parry.classifier.train import load_trained
     from parry.metrics import wilson_interval
 
     val = load_split("val")
     vtexts, vlab = [v["text"] for v in val], [v["label"] for v in val]
-    ours_tok, ours = load_trained(our_dir)
-    data = build(ours_tok, seed)
-    texts = [c["text"] for c in data["cases"]]
-    configs: dict[str, dict[str, Any]] = {}
-    for mode, v_logits in score_modes(ours, ours_tok, vtexts, 256, 1).items():
-        t = fit_temperature(v_logits, vlab)
-        vp = [softmax_pos(lg, t) for lg in v_logits]
-        configs[f"parry/{mode}"] = {"temperature": t, "threshold": threshold_for_fpr(vp, vlab)}
-    case_logits = score_modes(ours, ours_tok, texts, 256, 1)
-    for mode in ("truncated", "chunked"):
-        c = configs[f"parry/{mode}"]
-        c["probs"] = [softmax_pos(lg, c["temperature"]) for lg in case_logits[mode]]
-    del ours
-    p_tok, p_model, p_pos = _load_protectai()
-    pv = score_modes(p_model, p_tok, vtexts, 512, p_pos)
-    pc = score_modes(p_model, p_tok, texts, 512, p_pos)
-    for mode in ("truncated", "chunked"):
-        vp = [softmax_pos(lg) for lg in pv[mode]]
-        probs = [softmax_pos(lg) for lg in pc[mode]]
-        configs[f"protectai/{mode}@0.5"] = {"threshold": 0.5, "probs": probs}
-        configs[f"protectai/{mode}@tuned"] = {
-            "threshold": threshold_for_fpr(vp, vlab),
-            "probs": probs,
-        }
-    from parry.classifier.chunking import window_logits
-    from parry.classifier.evaluate import TARGET_FPR
-
-    flags: dict[str, list[bool]] = {
-        n: [p >= c["threshold"] for p in c["probs"]] for n, c in configs.items()
-    }
-    examples: dict[str, Any] = {}
-    # exploratory, ours: window probabilities with the chunked-mode temperature
-    t_ch = configs["parry/chunked"]["temperature"]
     o_tok, o_model = load_trained(our_dir)
-    vw = [[softmax_pos(lg, t_ch) for lg in ws] for ws in window_logits(o_model, o_tok, vtexts, 256)]
-    cw = [[softmax_pos(lg, t_ch) for lg in ws] for ws in window_logits(o_model, o_tok, texts, 256)]
+    data = build(o_tok, seed)
+    cases = data["cases"]
+    texts = [c["text"] for c in cases]
+    log(f"built {len(cases)} long-input cases from {data['unused_prompts']} unused prompts")
+
+    def score(model: Any, tok: Any, txts: list[str], window: int, pos: int, label: str) -> Any:
+        out = window_logits(model, tok, txts, window, pos, batch_size=16)
+        log(f"scored {label}: {len(txts)} texts, {sum(len(w) for w in out)} windows")
+        return out
+
+    ov = score(o_model, o_tok, vtexts, 256, 1, "ours / validation")
+    oc = score(o_model, o_tok, texts, 256, 1, "ours / long-input cases")
+    del o_model
+    _free_gpu()
+    p_tok, p_model, p_pos = _load_protectai()
+    pv = score(p_model, p_tok, vtexts, 512, p_pos, "protectai / validation")
+    pc = score(p_model, p_tok, texts, 512, p_pos, "protectai / long-input cases")
+    del p_model
+    _free_gpu()
+
+    flags: dict[str, list[bool]] = {}
+    meta: dict[str, dict[str, Any]] = {}
+    t_chunked = 1.0
+    for mode in ("truncated", "chunked"):
+        vl = [_pick(ws, mode) for ws in ov]
+        t = fit_temperature(vl, vlab)
+        thr = threshold_for_fpr([softmax_pos(lg, t) for lg in vl], vlab)
+        probs = [softmax_pos(_pick(ws, mode), t) for ws in oc]
+        flags[f"parry/{mode}"] = [p >= thr for p in probs]
+        meta[f"parry/{mode}"] = {"temperature": round(t, 4), "threshold": thr}
+        if mode == "chunked":
+            t_chunked = t
+    vw = [[softmax_pos(lg, t_chunked) for lg in ws] for ws in ov]
+    cw = [[softmax_pos(lg, t_chunked) for lg in ws] for ws in oc]
     ex = exploratory(vw, vlab, cw, TARGET_FPR)
     flags["parry/chunked+window_adjusted (exploratory)"] = ex["window_adjusted"]
     flags["parry/chunked+top2_mean (exploratory)"] = ex["top2_mean"]
-    # the most suspicious benign long documents, with their highest window, for inspection
-    benign_idx = [i for i, k in enumerate(data["cases"]) if k["position"] == "none"]
-    worst = sorted(benign_idx, key=lambda i: max(cw[i]), reverse=True)[:5]
-    wins = {i: windows_text(o_tok, data["cases"][i]["text"], 256) for i in worst}
-    examples["parry/chunked"] = [
-        {
-            "length": data["cases"][i]["length"],
-            "top_window_p": round(max(cw[i]), 4),
-            "top_window_excerpt": wins[i][max(range(len(cw[i])), key=lambda j: cw[i][j])][:300],
-        }
-        for i in worst
-    ]
-    del o_model
-    pvw = [
-        [softmax_pos(lg) for lg in ws] for ws in window_logits(p_model, p_tok, vtexts, 512, p_pos)
-    ]
-    pcw = [
-        [softmax_pos(lg) for lg in ws] for ws in window_logits(p_model, p_tok, texts, 512, p_pos)
-    ]
+    for mode in ("truncated", "chunked"):
+        vp = [softmax_pos(_pick(ws, mode)) for ws in pv]
+        probs = [softmax_pos(_pick(ws, mode)) for ws in pc]
+        tuned = threshold_for_fpr(vp, vlab)
+        flags[f"protectai/{mode}@0.5"] = [p >= 0.5 for p in probs]
+        flags[f"protectai/{mode}@tuned"] = [p >= tuned for p in probs]
+        meta[f"protectai/{mode}@0.5"] = {"threshold": 0.5}
+        meta[f"protectai/{mode}@tuned"] = {"threshold": tuned}
+    pvw = [[softmax_pos(lg) for lg in ws] for ws in pv]
+    pcw = [[softmax_pos(lg) for lg in ws] for ws in pc]
     pex = exploratory(pvw, vlab, pcw, TARGET_FPR)
     flags["protectai/chunked+window_adjusted (exploratory)"] = pex["window_adjusted"]
     flags["protectai/chunked+top2_mean (exploratory)"] = pex["top2_mean"]
-    configs.update({k: {"threshold": None} for k in flags if k not in configs})
+
+    benign_idx = [i for i, k in enumerate(cases) if k["position"] == "none"]
+    worst = sorted(benign_idx, key=lambda i: max(cw[i]), reverse=True)[:5]
+    examples = []
+    for i in worst:
+        wins = windows_text(o_tok, cases[i]["text"], 256)
+        j = max(range(len(cw[i])), key=lambda k: cw[i][k])
+        examples.append(
+            {
+                "length": cases[i]["length"],
+                "top_window_p": round(cw[i][j], 4),
+                "flagged_by_parry_chunked": flags["parry/chunked"][i],
+                "top_window_excerpt": wins[j][:300],
+            }
+        )
     out: dict[str, Any] = {
         "unused_benign_prompts": data["unused_prompts"],
         "note": "Long benign documents are concatenated OASST1 user prompts, which can contain "
         "instruction-like text; some flags on them may reflect that rather than length.",
         "configs": {},
-        "most_flagged_benign_examples": examples,
+        "most_flagged_benign_examples": {"parry/chunked": examples},
     }
-    for name, c in configs.items():
+    for name, fl in flags.items():
         rows: dict[str, Any] = {}
         for length in LENGTHS:
             for pos in ("none", *POSITIONS):
                 idx = [
-                    i
-                    for i, k in enumerate(data["cases"])
-                    if k["length"] == length and k["position"] == pos
+                    i for i, k in enumerate(cases) if k["length"] == length and k["position"] == pos
                 ]
-                k = sum(flags[name][i] for i in idx)
+                k = sum(fl[i] for i in idx)
                 r = wilson_interval(k, len(idx))
-                metric = "false_positive" if pos == "none" else "recall"
                 rows[f"{length}/{pos}"] = {
-                    "metric": metric,
+                    "metric": "false_positive" if pos == "none" else "recall",
                     "k": k,
                     "n": len(idx),
                     "rate": round(r.point, 4),
                     "low": round(r.low, 4),
                     "high": round(r.high, 4),
                 }
-        out["configs"][name] = {
-            "threshold": c["threshold"],
-            "temperature": c.get("temperature"),
-            "results": rows,
-        }
+        out["configs"][name] = {**meta.get(name, {}), "results": rows}
     return out
 
 

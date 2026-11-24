@@ -74,6 +74,8 @@ PyPI, blog post, v1.0.0 release.
   write-up docs/defenses.md; every correction in docs/deviations.md. No commits while a
   matrix runs (commit is pinned at process start anyway). Judge accuracy unmeasured.
 - garak: encoding payloads pinned to benign sets; offline preflight refuses harmful payloads.
+- Classifier chunking: `tests/test_chunking_real.py` runs against the real tokenizers (skips in CI);
+  a pre-commit hook runs it whenever `parry/classifier/chunking.py` changes.
 - Phase 3 requests ledger: re-read `docs/requests.md` at session start and after any context
   compaction; update it as items close.
 - Phase 2: `make scan` -> runs/<id>/ (trials.jsonl, summary.json, report.md/html). Commit code

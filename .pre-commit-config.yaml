@@ -26,3 +26,13 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+  - repo: local
+    hooks:
+      # Real-tokenizer chunking test; runs only when the chunking code changes. Skips if the
+      # tokenizers are not cached locally.
+      - id: chunking-real-tokenizers
+        name: chunking (real tokenizers)
+        entry: uv run pytest -q tests/test_chunking_real.py
+        language: system
+        pass_filenames: false
+        files: ^(parry/classifier/chunking\.py|tests/test_chunking_real\.py)$

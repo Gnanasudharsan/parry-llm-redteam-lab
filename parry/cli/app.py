@@ -1064,8 +1064,9 @@ def classifier_longinput(
     from parry.classifier.train import ARTIFACTS
     from parry.engine import _git_commit, _git_dirty
 
-    res = run(ARTIFACTS / f"deberta-v3-small-seed{seed}")
-    res |= {"git_commit": _git_commit(), "git_dirty": _git_dirty(), "seed": seed}
+    commit, dirty = _git_commit(), _git_dirty()  # captured at start, not at the end
+    res = run(ARTIFACTS / f"deberta-v3-small-seed{seed}", log=typer.echo)
+    res |= {"git_commit": commit, "git_dirty": dirty, "seed": seed}
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(res, indent=2) + "\n")
     for name, c in res["configs"].items():
