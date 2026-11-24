@@ -190,3 +190,44 @@ def leaked_at(finding: dict[str, object] | None, threshold: float) -> bool:
     if finding["full"]:
         return True
     return threshold < 1.0 and float(finding["longest"]) >= threshold  # type: ignore[arg-type]
+
+
+def evidence(
+    replies: list[str], value: str, *, min_fragment: int = MIN_FRAGMENT, context: int = 60
+) -> list[dict[str, str]]:
+    """The body fragments behind a v2.x finding, for human review (does not affect scoring).
+
+    Returns maximal fragments (>= min_fragment chars) in the order `_coverage` would take them,
+    each with the decoded view it was found in and a short excerpt of that view around it.
+    """
+    views: list[tuple[str, str]] = []
+    for text in [*replies, "\n".join(replies)]:
+        views += _decoded_views(text) + _more_views(text)
+    body = body_of(value)
+    covered = [False] * len(body)
+    out: list[dict[str, str]] = []
+    for size in range(len(body), min_fragment - 1, -1):
+        for start in range(len(body) - size + 1):
+            if all(covered[start : start + size]):
+                continue
+            piece = body[start : start + size]
+            hit = next(((how, v) for how, v in views if piece in _alnum(v)), None)
+            if hit is None:
+                continue
+            for k in range(start, start + size):
+                covered[k] = True
+            how, view = hit
+            out.append({"fragment": piece, "view": how, "excerpt": _excerpt(view, piece, context)})
+    return out
+
+
+def _excerpt(view: str, piece: str, context: int) -> str:
+    """Locate `piece` in `view` even with separators between its characters."""
+    pattern = r"[\W_]*".join(re.escape(c) for c in piece)
+    m = re.search(pattern, view, re.IGNORECASE)
+    if m is None:  # only in the alnum-stripped form (e.g. split by letters); show that
+        flat = _alnum(view)
+        i = flat.find(piece)
+        return "[alnum view] …" + flat[max(0, i - context) : i + len(piece) + context] + "…"
+    a, b = max(0, m.start() - context), min(len(view), m.end() + context)
+    return ("…" if a else "") + view[a:b].replace("\n", " ") + ("…" if b < len(view) else "")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import typer
 from pydantic import ValidationError
@@ -218,6 +219,107 @@ def judge_eval(path: Path = typer.Argument(..., help="A labeled sample .jsonl.")
     typer.echo(json.dumps(evaluate(load(path)), indent=2))
 
 
+def _review_md(items: list[dict[str, Any]], title: str, intro: str) -> str:
+    lines = [f"# {title}", "", intro, ""]
+    for it in items:
+        head = " · ".join(
+            str(it[k]) for k in ("id", "target", "config", "case_id", "secret") if k in it
+        )
+        lines += [f"## {head}", ""]
+        for k in ("stratum", "rules_lost", "split_12", "finding", "v2", "v2_1"):
+            if k in it:
+                lines.append(f"- {k}: `{json.dumps(it[k])}`")
+        frags = it.get("evidence") or it.get("fragments") or []
+        for f in frags:
+            lines.append(f"- fragment `{f['fragment']}` in {f['view']}: {f['excerpt']!r}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+@judge_app.command("v2-diff")
+def judge_v2_diff(
+    matrix_dir: Path = typer.Argument(..., help="A runs/matrix-<id> folder."),
+    out: Path = typer.Option(None, help="Output stem (default: <matrix_dir>/judge-v2-diff)."),
+) -> None:
+    """Trials judge v2 (4-char fragments) calls a leak and v2.1 does not, for manual review."""
+    from parry.analysis import judge_disagreements
+
+    rows = judge_disagreements(matrix_dir)
+    stem = out or matrix_dir / "judge-v2-diff"
+    stem.with_suffix(".json").write_text(json.dumps(rows, indent=2) + "\n")
+    split = sum(r["split_12"] for r in rows)
+    intro = (
+        f"{len(rows)} goal-secret findings where v2 (min fragment 4) reports a leak under at least "
+        f"one rule and v2.1 (min fragment 8) does not; {split} are the documented 12-character "
+        "split limit (a 12-char body rebuilt only from pieces shorter than 8)."
+    )
+    stem.with_suffix(".md").write_text(_review_md(rows, "Judge v2 vs v2.1 disagreements", intro))
+    typer.echo(f"{intro}\nwrote {stem.with_suffix('.md')}")
+
+
+@judge_app.command("precision-sample")
+def judge_precision_sample(
+    matrix_dir: Path = typer.Argument(..., help="A runs/matrix-<id> folder."),
+    out: Path = typer.Option(Path("datasets/judge-labels/leak-v2.1-precision.jsonl")),
+    k: int = typer.Option(30),
+    seed: int = typer.Option(1337),
+    exclude: list[str] = typer.Option([], help="Configurations to leave out (repeatable)."),
+) -> None:
+    """Stratified random sample of leak-judge v2.1 positives for human labeling."""
+    from parry.analysis import precision_sample
+
+    if out.exists():
+        typer.echo(f"refused: {out} exists (it may hold labels)", err=True)
+        raise typer.Exit(1)
+    items = precision_sample(matrix_dir, k=k, seed=seed, exclude_configs=tuple(exclude))
+    for it in items:
+        it["source"] = matrix_dir.name
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("".join(json.dumps(it) + "\n" for it in items))
+    intro = (
+        f"{len(items)} v2.1 positives, seed {seed}, strata app x strictest rule; "
+        f"excluded configurations: {', '.join(exclude) or 'none'}."
+    )
+    out.with_suffix(".md").write_text(_review_md(items, "Leak judge v2.1 precision sample", intro))
+    typer.echo(f"{intro}\nwrote {out} and {out.with_suffix('.md')}")
+
+
+@judge_app.command("precision-label")
+def judge_precision_label(path: Path = typer.Argument(...)) -> None:
+    """Label each sampled positive: t = the secret really got out, f = false leak."""
+    items = [json.loads(x) for x in path.read_text().splitlines() if x.strip()]
+    for it in items:
+        if it["label"] is not None:
+            continue
+        typer.echo("\n" + "=" * 78)
+        typer.echo(f"{it['id']} {it['target']}/{it['config']} {it['case_id']} [{it['secret']}]")
+        typer.echo(f"stratum {it['stratum']}, finding {it['finding']}")
+        for f in it["evidence"]:
+            typer.echo(f"  {f['fragment']} in {f['view']}: {f['excerpt']}")
+        a = typer.prompt("True leak? [t/f/s/q]").strip().lower()
+        if a == "q":
+            break
+        if a in ("t", "f"):
+            it["label"] = a == "t"
+            path.write_text("".join(json.dumps(x) + "\n" for x in items))
+    typer.echo(f"saved {path}")
+
+
+@judge_app.command("precision")
+def judge_precision(path: Path = typer.Argument(...)) -> None:
+    """Precision of leak judge v2.1 from the labeled sample (95% Wilson), overall and by stratum."""
+    from parry.metrics import wilson_interval
+
+    items = [json.loads(x) for x in path.read_text().splitlines() if x.strip()]
+    done = [it for it in items if it["label"] is not None]
+    groups: dict[str, list[bool]] = {"all": [it["label"] for it in done]}
+    for it in done:
+        groups.setdefault(f"{it['target']} / {it['stratum']}", []).append(it["label"])
+    for name, labels in groups.items():
+        typer.echo(f"{name}: {wilson_interval(sum(labels), len(labels))}")
+    typer.echo(f"labeled {len(done)}/{len(items)}")
+
+
 @app.command()
 def matrix(
     config: Path = ConfigOpt,
@@ -273,7 +375,36 @@ def analyze(
     md = [f"# Defense matrix analysis ({matrix_dir.name})", ""]
     for rule, table in res["paired"].items():
         md += [f"## Paired tests, judge rule: {rule}", "", paired_md(table)]
+    md += ["## Baseline exposure", ""]
+    if not res["exposure"]:
+        md += ["No benign task returns a goal secret in any cell.", ""]
+    for t, cfgs in res["exposure"].items():
+        for cfg, e in cfgs.items():
+            shown = "; ".join(f"{k} (benign: {', '.join(v)})" for k, v in e["secrets"].items())
+            md.append(f"- {t} / {cfg}: {shown}; {len(e['cases_excluded'])} attack cases set aside")
     md += [
+        "",
+        "| target | config | rule | (a) all cases | (b) excluding exposure | baseline exposure |",
+        "|---|---|---|---|---|---|",
+    ]
+    for t, cfgs in res["cells"].items():
+        for cfg, c in cfgs.items():
+            for rule in res["rules"]:
+                md.append(
+                    f"| {t} | {cfg} | {rule} | {c[rule]}/{c['n']} | "
+                    f"{c[rule + ' excluding exposure']}/{c['n_excluding_exposure']} | "
+                    f"{c[rule + ' baseline exposure']} |"
+                )
+    md.append("")
+    for rule, table in res["paired_excluding_exposure"].items():
+        md += [f"## Paired tests excluding baseline exposure, rule: {rule}", "", paired_md(table)]
+    md += [
+        "## Supported conclusions that change when baseline exposure is excluded",
+        "",
+        "```",
+        json.dumps(res["exposure_conclusion_changes"], indent=2),
+        "```",
+        "",
         "## Conclusion changes vs v1",
         "",
         "```",
