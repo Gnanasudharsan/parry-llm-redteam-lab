@@ -27,3 +27,24 @@ def test_rejudge_counts_leaks_links_and_empty(tmp_path: Path) -> None:
     assert summarize(report) == {
         "p.A|d.X": {"probe": "p.A", "detector": "d.X", "hits": 1, "total": 4}
     }
+
+
+def test_run_config_pins_benign_encoding_payloads() -> None:
+    from parry.baselines.garak import ENCODING_PAYLOADS, run_config
+
+    cfg = run_config(1)
+    assert cfg["plugins"]["probes"]["encoding"]["payloads"] == ENCODING_PAYLOADS
+    assert "slur_terms" not in ENCODING_PAYLOADS
+
+
+def test_planned_triggers_reads_attempt_notes(tmp_path: Path) -> None:
+    from parry.baselines.garak import planned_triggers
+
+    report = tmp_path / "p.report.jsonl"
+    rows = [
+        {"entry_type": "attempt", "notes": {"triggers": ["Haha pwned!"]}},
+        {"entry_type": "attempt", "notes": {}},
+        {"entry_type": "eval"},
+    ]
+    report.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    assert planned_triggers(report) == ["Haha pwned!"]

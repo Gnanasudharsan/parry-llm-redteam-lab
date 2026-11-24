@@ -52,6 +52,7 @@ Last updated: 2026-11-23.
 | P11 | Do not start the reruns until all six spot-checks are confirmed passing | done | all six pass (`de3b41c`) |
 | P12 | Requests ledger in `docs/requests.md`; re-read each session and after compaction; update and commit | done (standing) | this file |
 | P13 | Back up uncommitted work without touching HEAD (`git diff` patch + untracked copies) | done | `~/parry-uncommitted-20261123-2315.patch` + `-untracked/`; refreshed at 23:17 (`~/parry-uncommitted-20261123-2317.*`) |
+| P14 | Responsible scope for baselines: no harmful payloads reach any target (garak encoding probes defaulted to slur terms; D-006) | done (standing) | `parry/baselines/garak.py` pinned payloads + offline preflight |
 
 ## Analysis (final data only)
 

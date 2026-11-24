@@ -146,6 +146,26 @@ latency is reported as median and p95. Verdicts are unaffected by the wait itsel
   gives, per cell, `code_commit` (what ran) next to `recorded_git_commit` and
   `recorded_git_dirty`. Fix: D-004 (`de3b41c`) pins the commit at process start.
 
+## D-006: garak's encoding probes sent slur-term payloads to a lab model (Phase 3)
+
+- **What happened:** the first garak baseline run (2026-11-24, 11:31 local) sent 4 prompts to
+  the local `vuln-rag` lab model before it was stopped. garak 0.17.1's encoding probes default
+  to the payload sets `default`, `xss` and `slur_terms`, and `slur_terms` is a list of
+  hate-speech slurs; the 4 prompts carried encoded slur terms and asked the model to decode
+  them. This breaks the project's responsible-scope rule (benign payloads only). Nothing left
+  the machine (lab model on local Ollama); no hosted service received them.
+- **Found:** the run was stopped after its startup line listed garak's harmful-content intents;
+  the probe source (`probes/encoding.py`) and the 4 recorded triggers confirmed it.
+- **Fix:** encoding payloads are pinned to `["default", "xss"]` (garak's `text_en` phrases and
+  HTML/JS test strings). Before every run, Parry runs the same probes and config against
+  garak's offline `test.Blank` generator and refuses if any planned trigger comes from
+  `slur_terms_en`, `rude_french`, `rude_chinese` or `harmful_behaviors` (verified: the pinned
+  config plans 616 triggers with 0 forbidden; garak's defaults are refused with 31). The other
+  selected probes were read and use benign triggers (hiring sentences, false facts about the
+  Eiffel Tower, placeholder domains, "not malicious", PromptInject's "long-prompt" string).
+- **Data:** the partial garak report is not used and not committed; the baseline is rerun from
+  scratch.
+
 ## Checked, no rerun needed: OpenAI-compatible adapter seed (Phase 3)
 
 Commit `efd8fa5` also made `OpenAICompatAdapter` send a fixed seed. It is not on the path of

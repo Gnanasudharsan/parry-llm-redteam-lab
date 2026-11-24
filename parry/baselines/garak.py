@@ -49,11 +49,70 @@ def generator_options(target: TargetConfig) -> dict[str, Any]:
     }
 
 
+# garak's encoding probes default to ["default", "xss", "slur_terms"]; slur_terms is a list
+# of hate-speech slurs. Only benign payload sets are allowed (responsible scope, D-006).
+ENCODING_PAYLOADS = ["default", "xss"]
+# garak payload sets that must never reach a target (checked before every run).
+FORBIDDEN_PAYLOAD_SETS = ("slur_terms_en", "rude_french", "rude_chinese", "harmful_behaviors")
+
+
 def run_config(seed: int) -> dict[str, Any]:
     return {
         "run": {"seed": seed, "generations": 1, "soft_probe_prompt_cap": PROMPT_CAP},
         "system": {"parallel_attempts": 1, "lite": True},
+        "plugins": {"probes": {"encoding": {"payloads": ENCODING_PAYLOADS}}},
     }
+
+
+def _garak_data_dir(exe: str) -> Path:
+    """garak's packaged payload data, found from the interpreter that runs garak."""
+    out = subprocess.run(  # noqa: S603 - fixed argv
+        [str(Path(exe).resolve().parent / "python"), "-c",
+         "import garak, os; print(os.path.dirname(garak.__file__))"],
+        capture_output=True, text=True, check=True,
+    )  # fmt: skip
+    return Path(out.stdout.strip()) / "data" / "payloads"
+
+
+def forbidden_terms(exe: str) -> set[str]:
+    terms: set[str] = set()
+    for name in FORBIDDEN_PAYLOAD_SETS:
+        f = _garak_data_dir(exe) / f"{name}.json"
+        if f.exists():
+            terms.update(p.strip().lower() for p in json.loads(f.read_text())["payloads"])
+    return terms
+
+
+def planned_triggers(report: Path) -> list[str]:
+    out: list[str] = []
+    for line in report.read_text().splitlines():
+        e = json.loads(line)
+        if e.get("entry_type") == "attempt":
+            notes = e.get("notes") or {}
+            out += [str(t) for t in notes.get("triggers") or []]
+    return out
+
+
+def preflight(exe: str, cfg: Path, out_dir: Path) -> dict[str, Any]:
+    """Run the same probes and config against garak's offline `test.Blank` generator (no
+    network) and refuse if any planned trigger comes from a forbidden payload set."""
+    prefix = "parry-preflight"
+    subprocess.run(  # noqa: S603 - fixed argv built from validated config
+        [exe, "--model_type", "test.Blank", "--config", str(cfg),
+         "--probes", ",".join(PROBES), "--report_prefix", prefix],
+        check=True, capture_output=True,
+    )  # fmt: skip
+    report = _find_report(prefix)
+    triggers = planned_triggers(report)
+    bad = sorted({t for t in triggers if t.strip().lower() in forbidden_terms(exe)})
+    result = {"triggers": len(triggers), "forbidden": len(bad)}
+    (out_dir / "preflight.json").write_text(json.dumps(result, indent=2) + "\n")
+    if bad:
+        raise RuntimeError(
+            f"garak preflight: {len(bad)} planned trigger(s) come from a forbidden payload set; "
+            "nothing was sent to the target"
+        )
+    return result
 
 
 def run(target: TargetConfig, out_dir: Path, seed: int) -> Path:
@@ -65,6 +124,7 @@ def run(target: TargetConfig, out_dir: Path, seed: int) -> Path:
     cfg = out_dir / f"{target.name}.run.json"
     opts.write_text(json.dumps(generator_options(target), indent=2))
     cfg.write_text(json.dumps(run_config(seed), indent=2))
+    preflight(exe, cfg, out_dir)  # raises before any request reaches the target
     prefix = f"parry-{target.name}"
     subprocess.run(  # noqa: S603 - fixed argv built from validated config
         [
