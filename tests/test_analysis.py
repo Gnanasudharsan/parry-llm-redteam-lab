@@ -122,7 +122,7 @@ def test_evidence_and_v2_diff_split_limit(tmp_path: Path) -> None:
 
     root = tmp_path / "m"
     (root / "t" / "none").mkdir(parents=True)
-    _run(root / "t" / "none", "r", {"s": (False, f"first {body[:6]} then {body[6:]}")})
+    _complete(_run(root / "t" / "none", "r", {"s": (False, f"first {body[:6]} then {body[6:]}")}))
     import parry.canary as canary
 
     real = canary.secrets_for
@@ -135,24 +135,72 @@ def test_evidence_and_v2_diff_split_limit(tmp_path: Path) -> None:
     assert {f["fragment"] for f in rows[0]["fragments"]} == {body[:6].lower(), body[6:].lower()}
 
 
-def test_precision_sample_is_stratified_and_reproducible(tmp_path: Path) -> None:
-    import parry.canary as canary
-    from parry.analysis import precision_sample
+def _complete(run: Path) -> Path:
+    _benign_file(run, {"hours": "9-5"})
+    (run / "config.json").write_text("{}")
+    return run
 
-    body = S["system_canary"].split("-")[-1]
+
+def test_precision_sample_by_evidence_type(tmp_path: Path) -> None:
+    import base64
+
+    import parry.canary as canary
+    from parry.analysis import precision_report, precision_sample
+
+    c = S["system_canary"]
+    body = c.split("-")[-1]
     root = tmp_path / "m"
     (root / "t" / "none").mkdir(parents=True)
-    outcomes = {f"f{i}": (True, S["system_canary"]) for i in range(10)}
-    outcomes |= {f"p{i}": (False, f"x {body[:9]} y") for i in range(10)}
-    _run(root / "t" / "none", "r", outcomes)
+    outcomes = {f"v{i}": (True, c) for i in range(12)}  # verbatim, more than per_type
+    outcomes |= {"d1": (False, base64.b64encode(c.encode()).decode())}  # decoded
+    outcomes |= {"d2": (False, " ".join(c))}  # separators -> decoded
+    outcomes |= {"p1": (False, f"x {body[:9]} y")}  # partial
+    outcomes |= {"e1": (False, f"a {body[:6]} b {body[6:]}")}  # residual entropy
+    outcomes |= {"n1": (False, "nothing")}
+    _complete(_run(root / "t" / "none", "r", outcomes))
     real = canary.secrets_for
     canary.secrets_for = lambda target, seed=None: real("t", "seed")
     try:
-        s1 = precision_sample(root, k=6, seed=1)
-        s2 = precision_sample(root, k=6, seed=1)
+        r1 = precision_sample(root, per_type=10, seed=1)
+        r2 = precision_sample(root, per_type=10, seed=1)
     finally:
         canary.secrets_for = real
-    assert [i["case_id"] for i in s1] == [i["case_id"] for i in s2]
-    strata = sorted(i["stratum"] for i in s1)
-    assert strata == ["v2.1 full"] * 3 + ["v2.1 partial>=2/3"] * 3
-    assert all(i["label"] is None and i["evidence"] for i in s1)
+    assert [i["case_id"] for i in r1["sample"]] == [i["case_id"] for i in r2["sample"]]
+    assert r1["population"] == {
+        "verbatim": 12,
+        "decoded": 2,
+        "partial": 1,
+        "pooled": 0,
+        "residual-entropy": 1,
+    }
+    kinds = [i["evidence_type"] for i in r1["sample"]]
+    assert kinds.count("verbatim") == 10 and kinds.count("decoded") == 2
+    assert all(i["label"] is None for i in r1["sample"])
+
+    for i in r1["sample"]:  # label: every verbatim true, decoded half true, rest false
+        i["label"] = i["evidence_type"] == "verbatim" or i["case_id"] == "d1"
+    rep = precision_report(r1["sample"], r1["population"])
+    assert rep["types"]["verbatim"]["true"] == 10 and rep["types"]["decoded"]["true"] == 1
+    # weighted: (12*1 + 2*0.5 + 1*0 + 1*0) / 16
+    assert rep["overall_weighted"]["precision"] == round(13 / 16, 4)
+
+
+def test_analysis_refuses_incomplete_cells(tmp_path: Path) -> None:
+    import pytest
+
+    from parry.analysis import _cell
+    from parry.matrix import IncompleteCellError
+
+    root = tmp_path / "m"
+    (root / "t" / "none").mkdir(parents=True)
+    with pytest.raises(IncompleteCellError):  # no run folder yet
+        _cell(root, "t", "none")
+    run = _run(root / "t" / "none", "r", {"a": (True, "x")})
+    with pytest.raises(IncompleteCellError):  # trials but no benign / marker
+        _cell(root, "t", "none")
+    _benign_file(run, {"hours": "9-5"})
+    with pytest.raises(IncompleteCellError):  # benign written, marker not yet
+        _cell(root, "t", "none")
+    (run / "config.json").write_text("{}")
+    assert _cell(root, "t", "none") == run
+    assert _cell(root, "t", "missing") is None

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -219,6 +221,18 @@ def judge_eval(path: Path = typer.Argument(..., help="A labeled sample .jsonl.")
     typer.echo(json.dumps(evaluate(load(path)), indent=2))
 
 
+@contextmanager
+def _complete_cells() -> Iterator[None]:
+    """Analysis commands refuse to read a cell that has no completion marker."""
+    from parry.matrix import IncompleteCellError
+
+    try:
+        yield
+    except IncompleteCellError as exc:
+        typer.echo(f"refused: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+
 def _review_md(items: list[dict[str, Any]], title: str, intro: str) -> str:
     lines = [f"# {title}", "", intro, ""]
     for it in items:
@@ -226,9 +240,21 @@ def _review_md(items: list[dict[str, Any]], title: str, intro: str) -> str:
             str(it[k]) for k in ("id", "target", "config", "case_id", "secret") if k in it
         )
         lines += [f"## {head}", ""]
-        for k in ("stratum", "rules_lost", "split_12", "finding", "v2", "v2_1", "v2_2"):
+        for k in (
+            "evidence_type",
+            "detail",
+            "v2_1_positive",
+            "rules_lost",
+            "split_12",
+            "finding",
+            "v2",
+            "v2_1",
+            "v2_2",
+        ):
             if k in it:
                 lines.append(f"- {k}: `{json.dumps(it[k])}`")
+        for j, r in enumerate(it.get("replies", []), 1):
+            lines.append(f"- reply {j}: {r!r}")
         frags = it.get("evidence") or it.get("fragments") or []
         for f in frags:
             lines.append(f"- fragment `{f['fragment']}` in {f['view']}: {f['excerpt']!r}")
@@ -250,7 +276,8 @@ def judge_v2_diff(
     """Trials judge v2 (4-char fragments) calls a leak and v2.1 does not, for manual review."""
     from parry.analysis import judge_disagreements
 
-    rows = judge_disagreements(matrix_dir)
+    with _complete_cells():
+        rows = judge_disagreements(matrix_dir)
     stem = out or matrix_dir / "judge-v2-diff"
     stem.with_suffix(".json").write_text(json.dumps(rows, indent=2) + "\n")
     split = sum(r["split_12"] for r in rows)
@@ -273,7 +300,8 @@ def judge_fp_controls(
     """False-positive controls: never-planted secrets and benign answers, one judge version."""
     from parry.analysis import fp_controls
 
-    res = fp_controls(matrix_dir, judge)
+    with _complete_cells():
+        res = fp_controls(matrix_dir, judge)
     (matrix_dir / f"fp-controls-v{judge}.json").write_text(json.dumps(res, indent=2) + "\n")
     typer.echo(
         json.dumps({k: v for k, v in res.items() if k != "benign_real_secret_hits"}, indent=2)
@@ -285,65 +313,64 @@ def judge_fp_controls(
 
 @judge_app.command("precision-sample")
 def judge_precision_sample(
-    matrix_dir: Path = typer.Argument(..., help="A runs/matrix-<id> folder."),
-    out: Path = typer.Option(Path("datasets/judge-labels/leak-v2.1-precision.jsonl")),
-    k: int = typer.Option(30),
+    matrix_dir: Path = typer.Argument(..., help="A finished runs/matrix-<id> folder."),
+    out: Path = typer.Option(Path("datasets/judge-labels/leak-precision.json")),
+    per_type: int = typer.Option(10, help="Items per evidence type (all if fewer)."),
     seed: int = typer.Option(1337),
     exclude: list[str] = typer.Option([], help="Configurations to leave out (repeatable)."),
 ) -> None:
-    """Stratified random sample of leak-judge v2.1 positives for human labeling."""
+    """Sample leak-judge positives for human labeling, stratified by evidence type."""
     from parry.analysis import precision_sample
 
     if out.exists():
         typer.echo(f"refused: {out} exists (it may hold labels)", err=True)
         raise typer.Exit(1)
-    items = precision_sample(matrix_dir, k=k, seed=seed, exclude_configs=tuple(exclude))
-    for it in items:
-        it["source"] = matrix_dir.name
+    with _complete_cells():
+        res = precision_sample(matrix_dir, per_type, seed, tuple(exclude))
+    res["source"] = matrix_dir.name
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("".join(json.dumps(it) + "\n" for it in items))
+    out.write_text(json.dumps(res, indent=2) + "\n")
+    pop = ", ".join(f"{k} {v}" for k, v in res["population"].items())
     intro = (
-        f"{len(items)} v2.1 positives, seed {seed}, strata app x strictest rule; "
-        f"excluded configurations: {', '.join(exclude) or 'none'}."
+        f"{len(res['sample'])} items; positives by evidence type: {pop}. Up to {per_type} per "
+        f"type, seed {seed}; excluded configurations: {', '.join(exclude) or 'none'}."
     )
-    out.with_suffix(".md").write_text(_review_md(items, "Leak judge v2.1 precision sample", intro))
+    out.with_suffix(".md").write_text(
+        _review_md(res["sample"], "Leak judge precision sample", intro)
+    )
     typer.echo(f"{intro}\nwrote {out} and {out.with_suffix('.md')}")
 
 
 @judge_app.command("precision-label")
 def judge_precision_label(path: Path = typer.Argument(...)) -> None:
     """Label each sampled positive: t = the secret really got out, f = false leak."""
-    items = [json.loads(x) for x in path.read_text().splitlines() if x.strip()]
-    for it in items:
+    data = json.loads(path.read_text())
+    for it in data["sample"]:
         if it["label"] is not None:
             continue
         typer.echo("\n" + "=" * 78)
         typer.echo(f"{it['id']} {it['target']}/{it['config']} {it['case_id']} [{it['secret']}]")
-        typer.echo(f"stratum {it['stratum']}, finding {it['finding']}")
+        typer.echo(f"evidence type {it['evidence_type']} ({it['detail']}), finding {it['finding']}")
+        for j, r in enumerate(it["replies"], 1):
+            typer.echo(f"  reply {j}: {r}")
         for f in it["evidence"]:
-            typer.echo(f"  {f['fragment']} in {f['view']}: {f['excerpt']}")
+            typer.echo(f"  fragment {f['fragment']} in {f['view']}: {f['excerpt']}")
         a = typer.prompt("True leak? [t/f/s/q]").strip().lower()
         if a == "q":
             break
         if a in ("t", "f"):
             it["label"] = a == "t"
-            path.write_text("".join(json.dumps(x) + "\n" for x in items))
+            path.write_text(json.dumps(data, indent=2) + "\n")
     typer.echo(f"saved {path}")
 
 
 @judge_app.command("precision")
 def judge_precision(path: Path = typer.Argument(...)) -> None:
-    """Precision of leak judge v2.1 from the labeled sample (95% Wilson), overall and by stratum."""
-    from parry.metrics import wilson_interval
+    """Precision per evidence type (95% Wilson) and overall, weighted by share of positives."""
+    from parry.analysis import precision_report
 
-    items = [json.loads(x) for x in path.read_text().splitlines() if x.strip()]
-    done = [it for it in items if it["label"] is not None]
-    groups: dict[str, list[bool]] = {"all": [it["label"] for it in done]}
-    for it in done:
-        groups.setdefault(f"{it['target']} / {it['stratum']}", []).append(it["label"])
-    for name, labels in groups.items():
-        typer.echo(f"{name}: {wilson_interval(sum(labels), len(labels))}")
-    typer.echo(f"labeled {len(done)}/{len(items)}")
+    data = json.loads(path.read_text())
+    typer.echo(json.dumps(precision_report(data["sample"], data["population"]), indent=2))
 
 
 @app.command()
@@ -381,7 +408,8 @@ def matrix_report(
     from parry.matrix import summarize_matrix
     from parry.reporting.pareto import to_markdown, to_svg
 
-    m = summarize_matrix(matrix_dir)
+    with _complete_cells():
+        m = summarize_matrix(matrix_dir)
     (matrix_dir / "matrix.json").write_text(json.dumps(m, indent=2) + "\n")
     (matrix_dir / "matrix.md").write_text(to_markdown(m))
     (matrix_dir / "pareto.svg").write_text(to_svg(m))
@@ -396,7 +424,8 @@ def analyze(
     from parry.analysis import analyze as run_analysis
     from parry.analysis import to_markdown as paired_md
 
-    res = run_analysis(matrix_dir)
+    with _complete_cells():
+        res = run_analysis(matrix_dir)
     (matrix_dir / "analysis.json").write_text(json.dumps(res, indent=2) + "\n")
     md = [f"# Defense matrix analysis ({matrix_dir.name})", ""]
     for rule, table in res["paired"].items():
@@ -450,7 +479,8 @@ def matrix_compare(
     """Check a rerun against the original within measured run-to-run noise."""
     from parry.matrix import compare_cells
 
-    typer.echo(json.dumps(compare_cells(original, rerun), indent=2))
+    with _complete_cells():
+        typer.echo(json.dumps(compare_cells(original, rerun), indent=2))
 
 
 @app.command()

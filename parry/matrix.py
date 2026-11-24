@@ -88,9 +88,10 @@ def run_matrix(
                     "trace": after.get("trace", {}),
                     "model": after.get("model"),
                 }
-                (run_dir / "config.json").write_text(
-                    json.dumps({**mc.model_dump(mode="json"), **applied}, indent=2)
-                )
+                # Written last and atomically: its presence marks the cell complete.
+                tmp = run_dir / (COMPLETION_MARKER + ".tmp")
+                tmp.write_text(json.dumps({**mc.model_dump(mode="json"), **applied}, indent=2))
+                tmp.replace(run_dir / COMPLETION_MARKER)
                 s = cell_summary(run_dir)
                 progress(
                     f"    ASR {s['asr']['text']} | benign {s['utility']['text']} | "
@@ -107,7 +108,37 @@ def _r(k: int, n: int) -> dict[str, Any]:
     return {"k": k, "n": n, "rate": r.point, "low": r.low, "high": r.high, "text": str(r)}
 
 
+# A cell is complete once config.json exists: run_matrix writes it last, after the attack
+# trials (trials.jsonl, run.json) and the benign tasks (benign.jsonl). Analysis refuses to
+# read a cell without it, so a running or interrupted cell is never reported.
+COMPLETION_MARKER = "config.json"
+_CELL_FILES = ("trials.jsonl", "run.json", "benign.jsonl", COMPLETION_MARKER)
+
+
+class IncompleteCellError(RuntimeError):
+    pass
+
+
+def require_complete(run_dir: Path) -> Path:
+    missing = [f for f in _CELL_FILES if not (run_dir / f).exists()]
+    if missing:
+        raise IncompleteCellError(
+            f"{run_dir}: incomplete cell (missing {', '.join(missing)}); "
+            "it is still running or was interrupted"
+        )
+    return run_dir
+
+
+def cell_run(cfg_dir: Path) -> Path:
+    """The run folder of a configuration cell, refusing incomplete cells."""
+    run = next((p for p in cfg_dir.iterdir() if p.is_dir()), None)
+    if run is None:
+        raise IncompleteCellError(f"{cfg_dir}: cell has no run folder yet")
+    return require_complete(run)
+
+
 def cell_summary(run_dir: Path) -> dict[str, Any]:
+    require_complete(run_dir)
     trials = scored(load_trials(run_dir))
     benign = [
         BenignResult.model_validate_json(x)
@@ -161,7 +192,7 @@ def summarize_matrix(out: Path) -> dict[str, Any]:
     for target_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         cells: dict[str, Any] = {}
         for cfg_dir in sorted(p for p in target_dir.iterdir() if p.is_dir()):
-            run_dir = next(p for p in cfg_dir.iterdir() if p.is_dir())
+            run_dir = cell_run(cfg_dir)
             cells[cfg_dir.name] = {"run": str(run_dir.relative_to(out)), **cell_summary(run_dir)}
         base = cells.get("none")
         for c in cells.values():
@@ -190,6 +221,8 @@ def compare_cells(a: Path, b: Path) -> dict[str, Any]:
     Passes when (1) per-case verdict changes stay within the Phase 2 noise allowance,
     ceil(n x upper 95% Wilson bound of 1/256), and (2) the two ASR intervals overlap.
     """
+    require_complete(a)
+    require_complete(b)
     ta = {t.case_id: t for t in scored(load_trials(a))}
     tb = {t.case_id: t for t in scored(load_trials(b))}
     common = sorted(set(ta) & set(tb))
