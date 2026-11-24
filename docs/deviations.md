@@ -48,6 +48,23 @@ never mixed into reported numbers.
   hook and commit errors stay visible and the commit's exit code is checked before a commit
   is reported as done.
 
+## D-004: Spot-check cells recorded a commit made during the run (Phase 3)
+
+- **What happened:** the spot-check matrix `runs/matrix-20261124T010536Z` started at commit
+  `3cc9189` (lab containers rebuilt at that commit). While it ran, commit `e528d28` (LLM
+  panel) was made. Each cell read HEAD when its scan started, so three cells record
+  `e528d28` (`vuln-rag/pi_classifier`, `vuln-agent/none`, `vuln-agent/pi_classifier`) and three
+  record `3cc9189`.
+- **What actually ran:** `3cc9189` for all six cells. The diff `3cc9189..e528d28` touches only
+  `parry/analysis.py`, `parry/cli/app.py` (new `judge panel` command), a docstring in
+  `parry/judges/leak.py`, new `parry/judges/panel.py` and `parry/stats.py` additions, tests and
+  docs: none is on the scan, benign or lab path, the running process had already imported
+  its modules, and the containers were built at `3cc9189`. The result files are left as
+  written; this entry is the correction.
+- **Fix:** `run_matrix` captures the commit and dirty flag once at process start, records
+  them in `provenance.json`, and passes them to every cell (`run_scan(..., code=...)`).
+  Process rule: no commits while a matrix runs.
+
 ## Checked, no rerun needed: OpenAI-compatible adapter seed (Phase 3)
 
 Commit `efd8fa5` also made `OpenAICompatAdapter` send a fixed seed. It is not on the path of
@@ -75,6 +92,21 @@ no errored cases, so the spot-checks should show no effect from it.
 Both must pass: (a) zero `OutputValidator` constructions and calls in the trace, and (b)
 per-case verdict changes within the Phase 2 noise allowance and overlapping ASR intervals
 (`parry matrix-compare`). If either fails for any app, the full matrix is rerun.
+
+**Result (runs/matrix-20261124T010536Z vs the original cells at `3cc9189`): all six pass.**
+
+| app | config | cases | verdict changes (allowance) | identical replies | CIs overlap | benign changes | output_validator trace |
+|---|---|---|---|---|---|---|---|
+| vuln-mcp | none | 35 | 0 (1) | 35/35 | yes | 0 | empty |
+| vuln-mcp | pi_classifier | 35 | 0 (1) | 35/35 | yes | 0 | empty |
+| vuln-rag | none | 44 | 0 (1) | 44/44 | yes | 0 | empty |
+| vuln-rag | pi_classifier | 44 | 0 (1) | 42/44 | yes | 0 | empty |
+| vuln-agent | none | 49 | 0 (2) | 49/49 | yes | 0 | empty |
+| vuln-agent | pi_classifier | 49 | 0 (2) | 49/49 | yes | 0 | empty |
+
+No case errored, so the retry rule did not fire. No full-matrix rerun is needed; the original
+cells stand except the three configurations rerun under D-001/D-002. (Recorded commits: see
+D-004.)
 
 ## Tooling note T-001: progress output and stale estimates (Phase 3)
 

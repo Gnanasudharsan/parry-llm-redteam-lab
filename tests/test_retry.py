@@ -49,8 +49,16 @@ def test_errored_case_is_retried_once_and_both_attempts_kept(
         if c.case_id in {"pe-direct/01", "pe-direct/02", "pe-direct/03"}
     ]
     run = run_scan(
-        cfg, authorize(cfg, ["t"]), cases, tmp_path, use_llm_judge=False, progress=lambda _: None
+        cfg,
+        authorize(cfg, ["t"]),
+        cases,
+        tmp_path,
+        use_llm_judge=False,
+        progress=lambda _: None,
+        code=("abc1234", False),  # a matrix pins the commit it loaded at process start
     )
+    meta = json.loads((run / "run.json").read_text())
+    assert (meta["git_commit"], meta["git_dirty"]) == ("abc1234", False)
 
     everything = load_trials(run, all_attempts=True)
     assert [(t.case_id, t.attempt, t.error is None) for t in everything] == [

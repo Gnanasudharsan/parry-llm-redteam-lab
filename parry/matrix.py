@@ -53,10 +53,21 @@ def run_matrix(
     use_llm_judge: bool = True,
     progress: Callable[[str], None] = lambda s: print(s, flush=True),
 ) -> Path:
+    from parry.engine import _git_commit, _git_dirty
+
+    code = (_git_commit(), _git_dirty())  # the code this process loaded, fixed for the run
     out = out_root / ("matrix-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"))
     out.mkdir(parents=True)
     (out / "provenance.json").write_text(
-        json.dumps({"ollama": ollama_info(str(cfg.judge.llm_url)), "seed": cfg.seed}, indent=2)
+        json.dumps(
+            {
+                "ollama": ollama_info(str(cfg.judge.llm_url)),
+                "seed": cfg.seed,
+                "git_commit": code[0],
+                "git_dirty": code[1],
+            },
+            indent=2,
+        )
         + "\n"
     )
     for auth in targets:
@@ -74,7 +85,13 @@ def run_matrix(
                 cell = out / t.name / mc.name
                 cell.mkdir(parents=True)
                 run_dir = run_scan(
-                    cfg, [auth], cases, cell, use_llm_judge=use_llm_judge, progress=lambda s: None
+                    cfg,
+                    [auth],
+                    cases,
+                    cell,
+                    use_llm_judge=use_llm_judge,
+                    progress=lambda s: None,
+                    code=code,
                 )
                 benign = run_benign(make_adapter(t), lab, tasks)
                 after = lab.state()  # trace counts cover this cell's attacks and benign tasks

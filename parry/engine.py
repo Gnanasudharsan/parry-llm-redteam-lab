@@ -92,16 +92,20 @@ def run_scan(
     *,
     use_llm_judge: bool = True,
     progress: Callable[[str], None] = lambda s: print(s, flush=True),
+    code: tuple[str | None, bool | None] | None = None,
 ) -> Path:
+    """`code` = (commit, dirty) of the code that runs; a matrix passes the values it captured
+    at process start, so a commit made while the run is going is not recorded by mistake."""
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + f"-s{cfg.seed}"
+    commit, dirty = code if code is not None else (_git_commit(), _git_dirty())
     out = out_root / run_id
     out.mkdir(parents=True, exist_ok=False)
     llm = LlmJudge(str(cfg.judge.llm_url), cfg.judge.llm_model, cfg.seed) if use_llm_judge else None
     meta: dict[str, Any] = {
         "run_id": run_id,
         "parry_version": __version__,
-        "git_commit": _git_commit(),
-        "git_dirty": _git_dirty(),
+        "git_commit": commit,
+        "git_dirty": dirty,
         "seed": cfg.seed,
         "cases_hash": cases_hash(cases),
         "judge_model": cfg.judge.llm_model if use_llm_judge else None,
