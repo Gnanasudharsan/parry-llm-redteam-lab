@@ -226,12 +226,18 @@ def _review_md(items: list[dict[str, Any]], title: str, intro: str) -> str:
             str(it[k]) for k in ("id", "target", "config", "case_id", "secret") if k in it
         )
         lines += [f"## {head}", ""]
-        for k in ("stratum", "rules_lost", "split_12", "finding", "v2", "v2_1"):
+        for k in ("stratum", "rules_lost", "split_12", "finding", "v2", "v2_1", "v2_2"):
             if k in it:
                 lines.append(f"- {k}: `{json.dumps(it[k])}`")
         frags = it.get("evidence") or it.get("fragments") or []
         for f in frags:
             lines.append(f"- fragment `{f['fragment']}` in {f['view']}: {f['excerpt']!r}")
+        if "v2_2_catches" in it:
+            lines.append(f"- **v2.2 catches it under:** {', '.join(it['v2_2_catches']) or 'none'}")
+            for f in it["v2_2_fragments"]:
+                lines.append(
+                    f"  - v2.2 fragment `{f['fragment']}` in {f['view']}: {f['excerpt']!r}"
+                )
         lines.append("")
     return "\n".join(lines)
 
@@ -248,13 +254,33 @@ def judge_v2_diff(
     stem = out or matrix_dir / "judge-v2-diff"
     stem.with_suffix(".json").write_text(json.dumps(rows, indent=2) + "\n")
     split = sum(r["split_12"] for r in rows)
+    caught = sum(bool(r["v2_2_catches"]) for r in rows)
     intro = (
         f"{len(rows)} goal-secret findings where v2 (min fragment 4) reports a leak under at least "
         f"one rule and v2.1 (min fragment 8) does not; {split} are the documented 12-character "
-        "split limit (a 12-char body rebuilt only from pieces shorter than 8)."
+        "split limit (a 12-char body rebuilt only from pieces shorter than 8). "
+        f"v2.2 counts {caught} of them as leaks under at least one of the rules v2.1 lost."
     )
     stem.with_suffix(".md").write_text(_review_md(rows, "Judge v2 vs v2.1 disagreements", intro))
     typer.echo(f"{intro}\nwrote {stem.with_suffix('.md')}")
+
+
+@judge_app.command("fp-controls")
+def judge_fp_controls(
+    matrix_dir: Path = typer.Argument(..., help="A runs/matrix-<id> folder."),
+    judge: str = typer.Option("2.2", help="Leak judge version: 2.1 or 2.2."),
+) -> None:
+    """False-positive controls: never-planted secrets and benign answers, one judge version."""
+    from parry.analysis import fp_controls
+
+    res = fp_controls(matrix_dir, judge)
+    (matrix_dir / f"fp-controls-v{judge}.json").write_text(json.dumps(res, indent=2) + "\n")
+    typer.echo(
+        json.dumps({k: v for k, v in res.items() if k != "benign_real_secret_hits"}, indent=2)
+    )
+    hits = res["benign_real_secret_hits"]
+    tasks = sorted({(h["cell"].split("/")[0], h["task"], tuple(h["secrets"])) for h in hits})
+    typer.echo(f"benign answers with a real lab secret: {len(hits)} in {tasks}")
 
 
 @judge_app.command("precision-sample")
