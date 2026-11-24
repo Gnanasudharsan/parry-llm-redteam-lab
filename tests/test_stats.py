@@ -43,3 +43,16 @@ def test_cohen_kappa_reference() -> None:
     assert abs((cohen_kappa(a, b) or 0) - 0.4) < 1e-9
     assert cohen_kappa([True, True], [True, True]) is None  # undefined, not 1
     assert cohen_kappa([], []) is None
+
+
+def test_mcnemar_power_and_mde() -> None:
+    from parry.stats import mcnemar_power, minimum_detectable_effect
+
+    # with no opened cases, significance at 0.05 needs b >= 6 (2 * 0.5**6 = 0.031)
+    assert abs(mcnemar_power(10, 1.0, 0.0) - 1.0) < 1e-12
+    assert mcnemar_power(5, 1.0, 0.0) == 0.0  # 2 * 0.5**5 = 0.0625: never significant
+    mde = minimum_detectable_effect(49)
+    assert mde is not None and 0.1 < mde < 0.3
+    assert abs(mcnemar_power(49, mde, 0.0) - 0.8) < 1e-3
+    strict = minimum_detectable_effect(49, alpha=0.05 / 15)
+    assert strict is not None and strict > mde  # stricter alpha, larger MDE

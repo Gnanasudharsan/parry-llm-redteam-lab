@@ -630,5 +630,55 @@ def analyze(root: Path) -> dict[str, Any]:
         }
         for rule in RULES
     }
+    result["power"] = power_table(result["paired"]["v1"])
+    result["by_family"] = family_table(root)
     result["fp_controls"] = {j: fp_controls(root, j) for j in ("2.1", "2.2")}
     return result
+
+
+# ---------------------------------------------------------------------------------------
+# Power of the comparisons that are not supported, and an exploratory per-family view.
+# ---------------------------------------------------------------------------------------
+def power_table(paired_rule: dict[str, Any], power: float = 0.8) -> dict[str, Any]:
+    """For each unsupported comparison: discordant pairs and the minimum ASR reduction the
+    exact McNemar test would detect with 80% power, at alpha 0.05 (best case after Holm) and
+    at alpha / m (the strictest Holm step, m = tests in that app). The opened rate is fixed
+    at its observed value. Read as "no detectable improvement at this sample size"."""
+    from parry.stats import minimum_detectable_effect
+
+    out: dict[str, Any] = {}
+    for target, rows in paired_rule.items():
+        m = len(rows)
+        for name, r in rows.items():
+            if r["significant"]:
+                continue
+            n = r["n"]
+            p_open = r["opened"] / n if n else 0.0
+            mde = minimum_detectable_effect(n, p_open, 0.05, power)
+            mde_strict = minimum_detectable_effect(n, p_open, 0.05 / m, power)
+            out.setdefault(target, {})[name] = {
+                "n": n,
+                "stopped": r["stopped"],
+                "opened": r["opened"],
+                "observed_reduction": round((r["stopped"] - r["opened"]) / n, 4) if n else 0.0,
+                "mde_alpha_0.05": round(mde, 4) if mde is not None else None,
+                f"mde_alpha_0.05/{m}": round(mde_strict, 4) if mde_strict is not None else None,
+            }
+    return out
+
+
+def family_table(root: Path) -> dict[str, Any]:
+    """ASR per attack family for every cell (judge v1). Exploratory: no tests, no Holm."""
+    out: dict[str, Any] = {}
+    for target_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+        for cfg_dir in sorted(p for p in target_dir.iterdir() if p.is_dir()):
+            run = _cell(root, target_dir.name, cfg_dir.name)
+            if run is None:
+                continue
+            fam: dict[str, list[int]] = {}
+            for t in scored(load_trials(run)):
+                k = fam.setdefault(t.family, [0, 0])
+                k[0] += _default_success(t)
+                k[1] += 1
+            out.setdefault(target_dir.name, {})[cfg_dir.name] = fam
+    return out

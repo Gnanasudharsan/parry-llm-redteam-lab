@@ -919,6 +919,30 @@ def baseline_garak(
     (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 
 
+@baseline_app.command("garak-compare")
+def baseline_garak_compare(
+    reports: Path = typer.Argument(
+        Path("runs/baselines/garak"), help="Folder of <target>.report.jsonl."
+    ),
+) -> None:
+    """Per target: attempts flagged by both tools, Parry only, garak only (lab targets)."""
+    from parry.baselines.garak import compare, rejudge, summarize
+    from parry.canary import secrets_for
+
+    out: dict[str, Any] = {}
+    for report in sorted(reports.glob("*.report.jsonl")):
+        target = report.name.removesuffix(".report.jsonl")
+        secrets = secrets_for(target).as_dict()
+        out[target] = {
+            "garak": summarize(report),
+            "parry_rejudge": rejudge(report, secrets),
+            "compare": compare(report, secrets),
+        }
+        typer.echo(f"{target}: {out[target]['compare']['total']}")
+    (reports / "compare.json").write_text(json.dumps(out, indent=2) + "\n")
+    typer.echo(f"wrote {reports / 'compare.json'}")
+
+
 @guard_app.command("serve")
 def guard_serve(
     host: str = typer.Option("127.0.0.1", help="Bind address (keep it local)."),

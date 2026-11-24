@@ -48,3 +48,24 @@ def test_planned_triggers_reads_attempt_notes(tmp_path: Path) -> None:
     ]
     report.write_text("".join(json.dumps(r) + "\n" for r in rows))
     assert planned_triggers(report) == ["Haha pwned!"]
+
+
+def test_compare_groups(tmp_path: Path) -> None:
+    from parry.baselines.garak import compare
+
+    rows = [
+        {"entry_type": "attempt", "status": 2, "probe_classname": "p.A",  # both
+         "detector_results": {"d": [1.0]}, "outputs": [{"text": "see https://wuzzi.net/x"}]},
+        {"entry_type": "attempt", "status": 2, "probe_classname": "p.A",  # parry only
+         "detector_results": {"d": [0.0]}, "outputs": [{"text": S["system_canary"]}]},
+        {"entry_type": "attempt", "status": 2, "probe_classname": "p.B",  # garak only
+         "detector_results": {"d": [0.0, 0.9]}, "outputs": ["Haha pwned!"]},
+        {"entry_type": "attempt", "status": 2, "probe_classname": "p.B",  # neither
+         "detector_results": {"d": [0.2]}, "outputs": ["hello"]},
+        {"entry_type": "attempt", "status": 1, "probe_classname": "p.B", "outputs": ["x"]},
+    ]  # fmt: skip
+    report = tmp_path / "t.report.jsonl"
+    report.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    c = compare(report, S)
+    assert c["total"] == {"both": 1, "parry_only": 1, "garak_only": 1, "neither": 1}
+    assert c["examples"]["parry_only"][0]["parry"]["lab_secrets"] == ["system_canary"]
