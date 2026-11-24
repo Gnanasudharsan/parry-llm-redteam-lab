@@ -502,12 +502,11 @@ def _panel_table(title: str, items: list[dict[str, Any]], models: tuple[str, ...
 
 
 def _hosted_labelers() -> dict[str, Any]:
-    """Groq and Gemini labelers (owner-approved exception, X-001). Keys stay in-process."""
-    from parry.judges.hosted import gemini_labeler, groq_labeler
+    """The hosted panel: two model families on Groq, neither Qwen (owner-approved
+    exception, X-001). Keys stay in-process."""
+    from parry.judges.hosted import GROQ_PANEL, groq_labeler
 
-    groq = groq_labeler()
-    gemini = gemini_labeler()
-    return {f"groq:{groq[1]['model']}": groq, f"google:{gemini[1]['model']}": gemini}
+    return {f"groq:{m}": groq_labeler(m) for m in GROQ_PANEL}
 
 
 @judge_app.command("panel")
@@ -518,7 +517,7 @@ def judge_panel(
     out: Path = typer.Option(Path("datasets/judge-labels/leak-panel.json")),
     model: list[str] = typer.Option([], help="Labeler models (default: llama3.1:8b, mistral:7b)."),
     seed: int = typer.Option(1337),
-    hosted: bool = typer.Option(False, help="Use the hosted labelers (Groq, Gemini)."),
+    hosted: bool = typer.Option(False, help="Use the hosted Groq panel (gpt-oss-120b, ALLaM)."),
     types: list[str] = typer.Option([], help="Only these evidence types from the sample."),
 ) -> None:
     """Blind LLM-panel labels for the leak precision sample and the v2-diff cases.
@@ -599,7 +598,7 @@ def judge_panel_phase2(
     out: Path = typer.Option(Path("datasets/judge-labels/phase2-panel.json")),
     model: list[str] = typer.Option([], help="Labeler models (default: llama3.1:8b, mistral:7b)."),
     seed: int = typer.Option(1337),
-    hosted: bool = typer.Option(False, help="Use the hosted labelers (Groq, Gemini)."),
+    hosted: bool = typer.Option(False, help="Use the hosted Groq panel (gpt-oss-120b, ALLaM)."),
 ) -> None:
     """Blind LLM-panel labels for the Phase 2 judge-accuracy set; Parry's judge and the
     generic LLM judge scored against them. LLM-panel labels, not human-verified."""

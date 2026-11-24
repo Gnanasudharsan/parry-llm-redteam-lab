@@ -123,3 +123,23 @@ def test_groq_pinned_model_missing_stops(keyfile: Path, monkeypatch: pytest.Monk
     monkeypatch.setattr(httpx, "get", lambda url, headers, timeout: _R(200, listed))
     with pytest.raises(RuntimeError, match="no fallback"):
         hosted.groq_labeler(key_file=keyfile)
+
+
+def test_reasoning_settings_only_for_gpt_oss(
+    keyfile: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bodies: list[dict[str, Any]] = []
+
+    def post(url: str, headers: dict[str, str], json: dict[str, Any], timeout: float) -> _R:
+        bodies.append(json)
+        return _R(200, {"choices": [{"message": {"content": '{"label":"f","reason":"r"}'}}]})
+
+    listed = {"data": [{"id": "openai/gpt-oss-120b"}, {"id": "allam-2-7b"}]}
+    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout: _R(200, listed))
+    monkeypatch.setattr(httpx, "post", post)
+    for m in hosted.GROQ_PANEL:
+        hosted.groq_labeler(m, key_file=keyfile)[0]("s", "u", 3)
+    gpt, allam = bodies
+    assert gpt["include_reasoning"] is False and gpt["max_tokens"] == 2048
+    assert "include_reasoning" not in allam and allam["max_tokens"] == 200
+    assert gpt["seed"] == allam["seed"] == 3 and gpt["temperature"] == allam["temperature"] == 0

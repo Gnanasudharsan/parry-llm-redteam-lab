@@ -17,6 +17,8 @@ import httpx
 
 KEYS_FILE = Path.home() / ".parry" / "keys.env"
 GROQ_MODEL = "openai/gpt-oss-120b"  # pinned (owner); llama-3.3-70b-versatile is retired
+# The hosted panel (owner decision, X-001): two model families on Groq, neither Qwen.
+GROQ_PANEL = ("openai/gpt-oss-120b", "allam-2-7b")
 GROQ_BASE = "https://api.groq.com/openai/v1"
 GROQ_URL = f"{GROQ_BASE}/chat/completions"
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
@@ -80,6 +82,12 @@ def groq_labeler(
 ) -> tuple[Labeler, dict[str, Any]]:
     key = load_key("GROQ_API_KEY", key_file)
     groq_model(key, model)
+    # gpt-oss models reason before answering; hidden reasoning tokens count toward max_tokens.
+    reasoning: dict[str, Any] = (
+        {"max_tokens": 2048, "include_reasoning": False}
+        if model.startswith("openai/gpt-oss")
+        else {"max_tokens": 200}
+    )
 
     def label(system: str, user: str, seed: int) -> dict[str, Any]:
         data = _post(
@@ -93,9 +101,8 @@ def groq_labeler(
                 ],
                 "temperature": 0,
                 "seed": seed,
-                "max_tokens": 2048,  # reasoning tokens count toward the limit
                 "response_format": {"type": "json_object"},
-                "include_reasoning": False,
+                **reasoning,
             },
         )
         return {

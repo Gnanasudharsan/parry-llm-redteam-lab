@@ -93,7 +93,7 @@ Last updated: 2026-11-23.
 | L9 | Apply the same panel to the 200 Phase 2 outcomes with the same blinding, known answers, wording and logging | done, flagged unreliable | `phase2-panel.*` (`7a14edc`) |
 | L10 | Note that the known-answer items are easy by design (detect a badly unreliable labeler, not subtle errors) as a limitation | done | J-001c (`6ff7b5a`) |
 | L11 | Analytic precision for verbatim and separator-spaced positives: effectively 1 by construction, chance bound per secret type, explained in J-001 | done | J-001e (bounds; 0 of 84 cases carry secret material) |
-| L12 | Hosted panel (Groq llama-3.3-70b-versatile, Gemini free tier) for the hard items only: pooled, residual-entropy, 13 v2-diff, 200 Phase 2; keys from `~/.parry/keys.env`, never printed or logged; documented exception; same blinding, fixed known-answer builder, temperature 0, seeds, backoff, wording | in progress | `parry/judges/hosted.py`, X-001; run after the reruns |
+| L12 | Hosted panel (Groq llama-3.3-70b-versatile, Gemini free tier) for the hard items only: pooled, residual-entropy, 13 v2-diff, 200 Phase 2; keys from `~/.parry/keys.env`, never printed or logged; documented exception; same blinding, fixed known-answer builder, temperature 0, seeds, backoff, wording | blocked | code done (`parry/judges/hosted.py`, X-001); Gemini free tier is 20 requests/day/model (needs 32 + 210); owner decision pending |
 | L13 | If either hosted labeler misses any known-answer item: void again; report hard-strata precision and Phase 2 judge accuracy as unmeasured with reasons | pending | gate in X-001 |
 | L14 | Run the hosted panel only after the reruns finish, not alongside them | pending (standing) | |
 | L15 | Pin Gemini to `gemini-2.5-flash`; no silent fallback, stop and ask if unavailable | done | `parry/judges/hosted.py` (`GEMINI_MODEL`), test |
@@ -101,6 +101,9 @@ Last updated: 2026-11-23.
 | L17 | X-001: free-tier Gemini inputs may be used by Google; only fake lab canaries and lab replies are sent | done | X-001 |
 | L18 | Groq model: `llama-3.3-70b-versatile` retired; use `openai/gpt-oss-120b`, pinned | done | `parry/judges/hosted.py`, X-001 |
 | L19 | Gemini model: `gemini-2.5-flash` closed to new users; use `gemini-3.8-flash`, pinned | done | `parry/judges/hosted.py`, X-001 |
+| L20 | Two-family Groq panel instead of Gemini: list Groq models, pick two non-Qwen families, show daily limits before running; Gemini dropped; log in X-001 | done (setup), run in progress | `openai/gpt-oss-120b` + `allam-2-7b` (owner approved); X-001 |
+| L21 | If no valid second Groq family: leak hard items by gpt-oss + Gemini over two days, Phase 2 accuracy unmeasured | not needed unless the Groq panel fails to run | |
+| L22 | Don't block the release on labeling: if the panel isn't done when garak and the analysis finish, release with hard-strata precision and Phase 2 accuracy marked "pending" and add a follow-up | pending (standing) | |
 
 ## Follow-ups (after the Phase 3 release; the Phase 3 matrix is not changed)
 

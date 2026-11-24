@@ -489,6 +489,23 @@ D-004.)
   hosted inference is still not guaranteed deterministic); rate-limit backoff (Retry-After,
   else exponential to 64 s, at most 8 attempts). Wording: "LLM-panel labels, not
   human-verified".
+- **Blocked (2026-11-24):** `gemini-3.8-flash` first answered 503 ("high demand") and then
+  429 RESOURCE_EXHAUSTED: the free tier allows 20 `generateContent` requests per day per
+  project and model (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`), and the day's quota
+  went to availability probes and their backoff retries (reset in about 15 hours). The panel
+  needs 32 Gemini calls for the leak hard items (9 + 13 + 10 known-answer) and 210 for Phase 2
+  (200 + 10): about 2 and 11 days at 20 per day. No item has been labeled by either hosted
+  model; Groq `openai/gpt-oss-120b` works. Owner decision pending.
+- **Panel changed (owner decision, 2026-11-24): two families on Groq, Gemini dropped.**
+  Groq's current models: `allam-2-7b` (SDAIA), `openai/gpt-oss-120b`, `openai/gpt-oss-20b`,
+  `openai/gpt-oss-safeguard-20b` (OpenAI), `qwen/qwen3.8-27b` (Alibaba, excluded), and
+  speech, TTS and prompt-guard models that are not chat labelers. The only pair of different
+  families without Qwen is `openai/gpt-oss-120b` (1,000 requests/day, 8,000 tokens/min) and
+  `allam-2-7b` (7,000 requests/day, 6,000 tokens/min, 4,096-token context; the longest
+  prompt is about 3,900 characters and fits). Limits read from Groq's rate-limit headers on a
+  dummy request. ALLaM is a 7B model, the size class that failed the local gate (J-001c);
+  the known-answer gate decides. JSON mode works for both (dummy probe). gpt-oss gets room
+  for hidden reasoning tokens; ALLaM does not need it.
 - **Gate:** if either hosted labeler misses any known-answer item, the panel is voided again
   and the write-up reports leak precision for the hard strata and Phase 2 judge accuracy as
   unmeasured, with the reasons.
