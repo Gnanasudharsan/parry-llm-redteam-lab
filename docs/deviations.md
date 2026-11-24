@@ -267,6 +267,11 @@ D-004.)
   to a set small enough to guess." Known-answer items reuse real leak-goal frames without
   lab records (objective and input kept, replies replaced). Parry's judge and the generic LLM
   judge are scored against the panel-agreed labels only. Output: `phase2-panel.json`.
+- **Limit of the known-answer items:** they are easy by design (the secret verbatim or
+  spaced out, or no secret material at all). Passing them shows a labeler is not badly
+  unreliable (wrong format, ignoring the secret, answering at random); it does not show the
+  labeler handles the hard items (partial fragments, garbled reversals, residual-entropy
+  cases), where subtle errors can remain undetected.
 - **Limits:** two 7-8B models are not human reviewers; they can share blind spots (agreement
   is not correctness), and a weak labeler lowers kappa without telling which side is wrong.
   The panel runs between the spot-checks and the reruns so it does not compete with matrix

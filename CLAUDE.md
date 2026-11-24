@@ -68,6 +68,8 @@ Inter Tight + JetBrains Mono; WCAG 2.2 AA; no gradients, no generic card grids, 
 PyPI, blog post, v1.0.0 release.
 
 ## Notes
+- Phase 3 requests ledger: re-read `docs/requests.md` at session start and after any context
+  compaction; update it as items close.
 - Phase 2: `make scan` -> runs/<id>/ (trials.jsonl, summary.json, report.md/html). Commit code
   before a reported run (run.json records git_commit + git_dirty). Judge labels pending in
   datasets/judge-labels/phase2-sample.jsonl (`parry judge label`, then `parry judge eval`).
