@@ -5,6 +5,40 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [phase-3] - 2026-11-24
+
+### Added
+- Defense layers (`parry/defenses`): Llama Guard 3 via Ollama, a DeBERTa prompt-injection
+  classifier served by `parry guard serve`, a format-aware output validator; composable at
+  input, untrusted-content and output hooks; versions and use traced per cell.
+- Runtime reconfiguration of lab apps (`PUT /_lab/config`); defense matrix of 42
+  configurations (`targets/matrix.yaml`, `parry matrix`), each with attacks and benign tasks.
+- `parry matrix-report` (results table, Pareto chart with latency), `parry matrix-compare`
+  (rerun vs original within measured noise), `parry analyze` (paired exact McNemar,
+  Holm-Bonferroni, seven leak-judge rules, false-positive controls, baseline exposure,
+  judge-artifact check).
+- Leak judge v2.1 and v2.2 next to v1 (more decoders, partial leaks, pieces across turns,
+  reversal of every decoded view, residual-entropy rule); decoder recall check.
+- Retry rule for errored cases and benign tasks; guard failures recorded and retried;
+  model-load stall detection for latency; request start times; provenance (commit pinned at
+  process start, Ollama version and model digests).
+- `parry baseline garak` with an offline payload preflight; garak responses re-judged with
+  Parry's judges.
+- LLM labeling panels (local and hosted) with blind known-answer items.
+- Results in `evals/results/` (final matrix, spot-checks, archived superseded cells);
+  docs/defenses.md, docs/deviations.md, docs/requests.md, ADR 0005.
+
+### Fixed
+- Output validator matched the word "staff" (D-001); Llama Guard calls had no seed (D-002).
+- garak encoding probes defaulted to a slur-term payload set (D-006).
+
+### Known gaps
+- Judge accuracy and hard-strata leak-judge precision are unmeasured (no reliable labels).
+- Follow-ups (docs/requests.md): guard fault-injection test with a fail-closed option;
+  MCP resource reads through the output hook; `redact_output` misses the secret's random body
+  on its own (F-003); no attack channel for untrusted content inside the user's message
+  (F-004, exposed by garak).
+
 ## [phase-2] - 2026-11-23
 
 ### Added

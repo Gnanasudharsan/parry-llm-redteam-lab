@@ -58,7 +58,7 @@ latency/cost overhead · judge accuracy vs human labels · OWASP/ATLAS coverage.
 0 Foundation ✅ · 1 ✅ Vulnerable targets + hardened twins, canaries, mock exfil, 40+ benign tasks per
 target · 2 ✅ Attack engine, families (direct/indirect injection, MCP tool poisoning, prompt extraction,
 data leakage, excessive agency, multi-turn, encodings, output handling), judges + 200-label judge set,
-`parry scan`/`parry report`, mapping · 3 Defense matrix, Pareto chart, baseline scanner comparison ·
+`parry scan`/`parry report`, mapping · 3 ✅ Defense matrix, Pareto chart, baseline scanner comparison ·
 4 Classifier (licensed data, held-out families, calibrated threshold, HF Hub model card) ·
 5 GitHub Action (SARIF, PR comment, ASR threshold) + demo repo · 6 Case studies on owner's own apps
 (Ramp, DecisionTrace) with explicit confirmation per target · 7 Docs site (tokens: ink #15191F,
@@ -68,6 +68,10 @@ Inter Tight + JetBrains Mono; WCAG 2.2 AA; no gradients, no generic card grids, 
 PyPI, blog post, v1.0.0 release.
 
 ## Notes
+- Phase 3 results: `evals/results/phase3-matrix` (code commit per cell in SOURCES.json);
+  write-up docs/defenses.md; every correction in docs/deviations.md. No commits while a
+  matrix runs (commit is pinned at process start anyway). Judge accuracy unmeasured.
+- garak: encoding payloads pinned to benign sets; offline preflight refuses harmful payloads.
 - Phase 3 requests ledger: re-read `docs/requests.md` at session start and after any context
   compaction; update it as items close.
 - Phase 2: `make scan` -> runs/<id>/ (trials.jsonl, summary.json, report.md/html). Commit code
