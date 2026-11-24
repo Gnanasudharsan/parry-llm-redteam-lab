@@ -52,7 +52,10 @@ def test_groq_request_and_backoff(keyfile: Path, monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(httpx, "post", post)
     monkeypatch.setattr(time, "sleep", sleeps.append)
+    listed = {"data": [{"id": "openai/gpt-oss-120b"}]}
+    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout: _R(200, listed))
     label, meta = hosted.groq_labeler(key_file=keyfile)
+    assert meta["model"] == "openai/gpt-oss-120b"
     res = label("system", "user", 7)
     assert hosted.parse(res["raw"]) == (True, "r")
     assert sleeps == [3.0] and len(calls) == 2  # honored Retry-After, then succeeded
@@ -70,13 +73,14 @@ def test_gemini_key_in_header_only(keyfile: Path, monkeypatch: pytest.MonkeyPatc
         return _R(200, {"candidates": [{"content": {"parts": [{"text": '{"label":"f"}'}]}}],
                         "modelVersion": "v1"})  # fmt: skip
 
-    listed = {"models": [{"name": "models/gemini-2.5-flash"}, {"name": "models/gemini-2.0-flash"}]}
+    listed = {"models": [{"name": "models/gemini-3.8-flash"}, {"name": "models/gemini-2.5-flash"}]}
     monkeypatch.setattr(httpx, "post", post)
-    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout: _R(200, listed))
+    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout, params=None: _R(200, listed))
     label, meta = hosted.gemini_labeler(key_file=keyfile)
-    assert meta["model"] == "gemini-2.5-flash"  # pinned
+    assert meta["model"] == "gemini-3.8-flash"  # pinned
+    assert calls[0][2]["contents"][0]["parts"][0]["text"] == "Say ok."  # probe, no lab data
     res = label("system", "user", 7)
-    url, headers, body = calls[0]
+    url, headers, body = calls[-1]
     assert FAKE_GEMINI not in url and headers["x-goog-api-key"] == FAKE_GEMINI
     assert body["generationConfig"]["temperature"] == 0 and body["generationConfig"]["seed"] == 7
     assert hosted.parse(res["raw"])[0] is False
@@ -85,6 +89,8 @@ def test_gemini_key_in_header_only(keyfile: Path, monkeypatch: pytest.MonkeyPatc
 
 def test_error_message_has_no_key(keyfile: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(httpx, "post", lambda url, headers, json, timeout: _R(401, {}))
+    listed = {"data": [{"id": "openai/gpt-oss-120b"}]}
+    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout: _R(200, listed))
     label, _ = hosted.groq_labeler(key_file=keyfile)
     with pytest.raises(RuntimeError) as exc:
         label("s", "u", 1)
@@ -93,6 +99,27 @@ def test_error_message_has_no_key(keyfile: Path, monkeypatch: pytest.MonkeyPatch
 
 def test_gemini_pinned_model_missing_stops(keyfile: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     listed = {"models": [{"name": "models/gemini-2.0-flash"}]}
-    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout: _R(200, listed))
+    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout, params=None: _R(200, listed))
     with pytest.raises(RuntimeError, match="no fallback"):
         hosted.gemini_labeler(key_file=keyfile)
+
+
+def test_gemini_listed_but_closed_stops(keyfile: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    listed = {"models": [{"name": "models/gemini-3.8-flash"}]}
+    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout, params=None: _R(200, listed))
+    monkeypatch.setattr(httpx, "post", lambda url, headers, json, timeout: _R(404, {}))
+    with pytest.raises(RuntimeError, match="probe: HTTP 404"):
+        hosted.gemini_labeler(key_file=keyfile)
+
+
+def test_cli_tracebacks_never_show_locals() -> None:
+    from parry.cli.app import app
+
+    assert app.pretty_exceptions_show_locals is False
+
+
+def test_groq_pinned_model_missing_stops(keyfile: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    listed = {"data": [{"id": "openai/gpt-oss-20b"}]}
+    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout: _R(200, listed))
+    with pytest.raises(RuntimeError, match="no fallback"):
+        hosted.groq_labeler(key_file=keyfile)

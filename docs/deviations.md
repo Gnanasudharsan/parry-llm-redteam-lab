@@ -409,10 +409,18 @@ D-004.)
 
 - **Decision (owner, 2026-11-23):** after the local panel was voided (J-001c), a hosted panel
   labels only the hard items: the pooled (4) and residual-entropy (5) leak positives, the 13
-  v2 vs v2.1 cases, and the 200 Phase 2 outcomes. Labelers: Groq `llama-3.3-70b-versatile`
-  and Google Gemini `gemini-2.5-flash` (free tier), pinned: if that model is unavailable the
-  run stops for an owner decision, with no fallback to another model. The served
-  `modelVersion` is recorded per answer. Groq's
+  v2 vs v2.1 cases, and the 200 Phase 2 outcomes. Labelers, pinned (if a pinned model is
+  unavailable the run stops for an owner decision, with no fallback): Groq
+  `openai/gpt-oss-120b` and Google Gemini `gemini-3.8-flash` (free tier). The served model,
+  Groq's `system_fingerprint` and Gemini's `modelVersion` are recorded per answer.
+- **Model changes before any labeling (owner decisions, 2026-11-24):** Groq no longer serves
+  `llama-3.3-70b-versatile` (HTTP 404 on the first request; nothing labeled); the owner chose
+  `openai/gpt-oss-120b` (Qwen excluded: same family as the target and LLM judge). Gemini
+  returned "no longer available to new users" for `gemini-2.5-flash` although the model list
+  still showed it; the owner chose `gemini-3.8-flash`. The availability check now sends one
+  dummy request with no lab data (with backoff) instead of trusting the model list. CLI
+  tracebacks no longer show local variables, which could hold a key; a check of the failed
+  run's output found no key material. Groq's
   `system_fingerprint` is recorded per answer. Hosted models have no digests; the served
   model identifiers are the record.
 - **What is sent:** lab replies, attacker inputs, the lab's records and the lab's fake,

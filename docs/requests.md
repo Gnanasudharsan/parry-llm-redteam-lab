@@ -98,6 +98,8 @@ Last updated: 2026-11-23.
 | L15 | Pin Gemini to `gemini-2.5-flash`; no silent fallback, stop and ask if unavailable | done | `parry/judges/hosted.py` (`GEMINI_MODEL`), test |
 | L16 | Phrase the analytic bound probabilistically (P(>=1 chance FP) <= ~0.7%, Poisson/Markov); no point precision value | done | J-001e |
 | L17 | X-001: free-tier Gemini inputs may be used by Google; only fake lab canaries and lab replies are sent | done | X-001 |
+| L18 | Groq model: `llama-3.3-70b-versatile` retired; use `openai/gpt-oss-120b`, pinned | done | `parry/judges/hosted.py`, X-001 |
+| L19 | Gemini model: `gemini-2.5-flash` closed to new users; use `gemini-3.8-flash`, pinned | done | `parry/judges/hosted.py`, X-001 |
 
 ## Follow-ups (after the Phase 3 release; the Phase 3 matrix is not changed)
 

@@ -21,6 +21,8 @@ from parry.scope import ScopeError, authorize, classify_target
 app = typer.Typer(
     help="Attack your LLM app before someone else does. Measure every defense.",
     no_args_is_help=True,
+    # Tracebacks never print local variables: they can hold API keys (hosted labelers).
+    pretty_exceptions_show_locals=False,
 )
 targets_app = typer.Typer(help="Inspect and authorize targets.", no_args_is_help=True)
 app.add_typer(targets_app, name="targets")
