@@ -943,6 +943,73 @@ def baseline_garak_compare(
     typer.echo(f"wrote {reports / 'compare.json'}")
 
 
+classifier_app = typer.Typer(
+    help="Train and evaluate Parry's prompt-injection classifier.", no_args_is_help=True
+)
+app.add_typer(classifier_app, name="classifier")
+
+
+@classifier_app.command("fetch")
+def classifier_fetch() -> None:
+    """Download the pinned datasets and base model (classifier/sources.yaml)."""
+    from parry.classifier.fetch import fetch
+
+    lock = fetch()
+    typer.echo(json.dumps({k: list(v) for k, v in lock.items()}, indent=2))
+
+
+@classifier_app.command("build")
+def classifier_build() -> None:
+    """Build the train/val/test splits and held-out sets; write the data manifest."""
+    from parry.classifier.data import build
+
+    m = build()
+    typer.echo(json.dumps({k: v["n"] for k, v in m["sets"].items()}, indent=2))
+
+
+@classifier_app.command("train")
+def classifier_train(
+    seed: list[int] = typer.Option([1337, 1338, 1339], help="Seeds (repeatable)."),
+    epochs: int = typer.Option(2),
+) -> None:
+    """Fine-tune DeBERTa-v3-small once per seed; log to MLflow (local file store)."""
+    import mlflow
+
+    from parry.classifier.data import MANIFEST, load_split
+    from parry.classifier.train import ARTIFACTS, train
+    from parry.engine import _git_commit, _git_dirty
+
+    commit, dirty = _git_commit(), _git_dirty()
+    tr, va = load_split("train"), load_split("val")
+    mlflow.set_tracking_uri("file:./mlruns")
+    mlflow.set_experiment("parry-classifier")
+    for s in seed:
+        out = ARTIFACTS / f"deberta-v3-small-seed{s}"
+        with mlflow.start_run(run_name=f"seed{s}"):
+            mlflow.set_tags({"git_commit": str(commit), "git_dirty": str(dirty)})
+            mlflow.log_artifact(str(MANIFEST))
+            meta = train(s, tr, va, out, params={"epochs": epochs}, log=typer.echo)
+            mlflow.log_params(
+                {
+                    **meta["params"],
+                    "seed": s,
+                    "base": meta["base"],
+                    "base_revision": meta["base_revision"],
+                    "device": meta["device"],
+                }
+            )
+            for row in meta["history"]:
+                mlflow.log_metrics(
+                    {"train_loss": row["train_loss"], "val_loss": row["val_loss"]},
+                    step=row["epoch"],
+                )
+            mlflow.log_metric("best_epoch", meta["best_epoch"])
+            meta["git_commit"], meta["git_dirty"] = commit, dirty
+            (out / "training.json").write_text(json.dumps(meta, indent=2) + "\n")
+        loss = meta["best_val_loss"]
+        typer.echo(f"seed {s}: best epoch {meta['best_epoch']}, val loss {loss:.4f} -> {out}")
+
+
 @guard_app.command("serve")
 def guard_serve(
     host: str = typer.Option("127.0.0.1", help="Bind address (keep it local)."),
