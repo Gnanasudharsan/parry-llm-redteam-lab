@@ -188,24 +188,41 @@ def run_panel(
     models: tuple[str, ...] = DEFAULT_MODELS,
     url: str | None = None,
     seed: int | None = None,
+    hosted: dict[str, tuple[Any, dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Label every item (and the mixed-in known-answer items) with every model.
 
     `views[i]` is what labelers see for `items[i]`. All items are labeled in one seeded
     shuffled order, so a known-answer item's position says nothing; each request is
-    independent anyway (one item per request, no history)."""
+    independent anyway (one item per request, no history). `hosted` maps a labeler name to
+    (call(system, user, seed), metadata) from `parry.judges.hosted`; then `models` is ignored
+    and no Ollama model is used."""
+    from parry.judges.hosted import parse
+
     url = url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     seed = seed if seed is not None else int(os.environ.get("LAB_MODEL_SEED", "1337"))
-    info = ollama_info(url)
-    missing = [m for m in models if m not in info.get("models", {})]
-    if missing:
-        raise RuntimeError(f"labeler models not installed: {', '.join(missing)}")
+    if hosted:
+        models = tuple(hosted)
+        info: dict[str, Any] = {"version": None, "models": {m: hosted[m][1] for m in models}}
+    else:
+        info = ollama_info(url)
+        missing = [m for m in models if m not in info.get("models", {})]
+        if missing:
+            raise RuntimeError(f"labeler models not installed: {', '.join(missing)}")
+
+    def one(m: str, view: dict[str, Any]) -> dict[str, Any]:
+        if not hosted:
+            return label_one(m, view, url=url, seed=seed)
+        res = hosted[m][0](SYSTEMS[view["kind"]], prompt(view), seed)
+        label, reason = parse(res["raw"])
+        return {"label": label, "reason": reason, "raw": res["raw"][:500], "served": res["served"]}
+
     queue = [("item", i, v) for i, v in enumerate(views)]
     queue += [("known", i, k["view"]) for i, k in enumerate(known)]
     random.Random(seed).shuffle(queue)  # noqa: S311 - reproducible order
     labeled: dict[tuple[str, int], dict[str, Any]] = {}
     for src, i, view in queue:
-        labeled[(src, i)] = {m: label_one(m, view, url=url, seed=seed) for m in models}
+        labeled[(src, i)] = {m: one(m, view) for m in models}
 
     def agreed(labels: dict[str, Any]) -> bool | None:
         votes = [v["label"] for v in labels.values()]

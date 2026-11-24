@@ -450,8 +450,13 @@ def _panel_header(meta: dict[str, Any], rule: str, shown: str) -> list[str]:
     lines = [
         f"# {PANEL_WORDING}",
         "",
-        f"Labelers: {', '.join(f'{m} ({d[:12]})' for m, d in meta['models'].items())}; "
-        f"Ollama {meta['ollama_version']}; temperature 0, seed {meta['seed']}. Each labeler saw "
+        "Labelers: "
+        + ", ".join(
+            f"{m} ({d[:12]})" if isinstance(d, str) else f"{m} ({d['provider']}, hosted)"
+            for m, d in meta["models"].items()
+        )
+        + (f"; Ollama {meta['ollama_version']}" if meta.get("ollama_version") else "")
+        + f"; temperature 0, seed {meta['seed']}. Each labeler saw "
         f"only {shown}; never the judge's verdict, the evidence type, the configuration, or "
         "the other labeler's answer. 10 known-answer items (5 clear leaks, 5 clear non-leaks "
         "built from real reply text) were mixed in, blind.",
@@ -494,6 +499,15 @@ def _panel_table(title: str, items: list[dict[str, Any]], models: tuple[str, ...
     return [*lines, ""]
 
 
+def _hosted_labelers() -> dict[str, Any]:
+    """Groq and Gemini labelers (owner-approved exception, X-001). Keys stay in-process."""
+    from parry.judges.hosted import gemini_labeler, groq_labeler
+
+    groq = groq_labeler()
+    gemini = gemini_labeler()
+    return {f"groq:{groq[1]['model']}": groq, f"google:{gemini[1]['model']}": gemini}
+
+
 @judge_app.command("panel")
 def judge_panel(
     matrix_dir: Path = typer.Argument(..., help="The finished matrix the items come from."),
@@ -502,6 +516,8 @@ def judge_panel(
     out: Path = typer.Option(Path("datasets/judge-labels/leak-panel.json")),
     model: list[str] = typer.Option([], help="Labeler models (default: llama3.1:8b, mistral:7b)."),
     seed: int = typer.Option(1337),
+    hosted: bool = typer.Option(False, help="Use the hosted labelers (Groq, Gemini)."),
+    types: list[str] = typer.Option([], help="Only these evidence types from the sample."),
 ) -> None:
     """Blind LLM-panel labels for the leak precision sample and the v2-diff cases.
 
@@ -518,8 +534,12 @@ def judge_panel(
         run_panel,
     )
 
-    models = tuple(model) or DEFAULT_MODELS
+    labelers = _hosted_labelers() if hosted else None
+    models = tuple(labelers) if labelers else (tuple(model) or DEFAULT_MODELS)
     smp = json.loads(sample.read_text())
+    if types:
+        smp["sample"] = [it for it in smp["sample"] if it["evidence_type"] in types]
+        smp["population"] = {k: v for k, v in smp["population"].items() if k in types}
     diff = json.loads(v2_diff.read_text())
     items = [{**it, "set": "precision"} for it in smp["sample"]]
     items += [{**it, "set": "v2_diff"} for it in diff]
@@ -532,7 +552,7 @@ def judge_panel(
         for v in secrets_for(t).as_dict().values()
     ]
     known = known_answers("leak", hosts, secrets, seed)
-    res = run_panel(items, views, known, models=models, seed=seed)
+    res = run_panel(items, views, known, models=models, seed=seed, hosted=labelers)
     prec = [it for it in res["items"] if it["set"] == "precision"]
     dif = [it for it in res["items"] if it["set"] == "v2_diff"]
     report = {
@@ -577,6 +597,7 @@ def judge_panel_phase2(
     out: Path = typer.Option(Path("datasets/judge-labels/phase2-panel.json")),
     model: list[str] = typer.Option([], help="Labeler models (default: llama3.1:8b, mistral:7b)."),
     seed: int = typer.Option(1337),
+    hosted: bool = typer.Option(False, help="Use the hosted labelers (Groq, Gemini)."),
 ) -> None:
     """Blind LLM-panel labels for the Phase 2 judge-accuracy set; Parry's judge and the
     generic LLM judge scored against them. LLM-panel labels, not human-verified."""
@@ -591,7 +612,8 @@ def judge_panel_phase2(
         run_panel,
     )
 
-    models = tuple(model) or DEFAULT_MODELS
+    labelers = _hosted_labelers() if hosted else None
+    models = tuple(labelers) if labelers else (tuple(model) or DEFAULT_MODELS)
     items = [json.loads(x) for x in sample.read_text().splitlines() if x.strip()]
     views = [outcome_view(it) for it in items]
     frames = [it for it in items if it["goal"].startswith("leak") and not it["evidence"]]
@@ -599,7 +621,7 @@ def judge_panel_phase2(
     with _complete_cells():
         hosts = _clean_hosts(matrix_dir, targets)
     known = known_answers("outcome", hosts, [], seed, frames=frames)
-    res = run_panel(items, views, known, models=models, seed=seed)
+    res = run_panel(items, views, known, models=models, seed=seed, hosted=labelers)
     scored = [
         LabelItem.model_validate(
             {**{k: it[k] for k in LabelItem.model_fields}, "human": it["panel_agreed"]}
@@ -696,10 +718,26 @@ def matrix(
 @app.command("matrix-report")
 def matrix_report(
     matrix_dir: Path = typer.Argument(..., help="A runs/matrix-<id> folder."),
+    ollama_log: Path | None = typer.Option(
+        None,
+        help="`ollama serve` log covering the run: model-load stalls are saved to "
+        "ollama-stalls.json and left out of latency statistics.",
+    ),
 ) -> None:
     """Write matrix.json, matrix.md and pareto.svg for a finished defense matrix."""
-    from parry.matrix import summarize_matrix
+    from parry.matrix import STALLS_FILE, summarize_matrix
     from parry.reporting.pareto import to_markdown, to_svg
+    from parry.stalls import STALL_S, ollama_stalls
+
+    if ollama_log is not None:
+        stalls = ollama_stalls(ollama_log)
+        (matrix_dir / STALLS_FILE).write_text(
+            json.dumps(
+                {"source": ollama_log.name, "min_seconds": STALL_S, "stalls": stalls}, indent=2
+            )
+            + "\n"
+        )
+        typer.echo(f"{len(stalls)} model-load stalls recorded in {matrix_dir / STALLS_FILE}")
 
     with _complete_cells():
         m = summarize_matrix(matrix_dir)
