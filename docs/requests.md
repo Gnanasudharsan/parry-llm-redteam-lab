@@ -121,6 +121,7 @@ Last updated: 2026-11-24 (Phase 3 release).
 | F2 | Hardened variant that routes MCP resource reads through the output hook (A-001 finding) | pending (after phase-3 release) | |
 | F3 | Fix `redact_output` to also redact the random body alone, separator-tolerant and decoded forms; regression test from vuln-rag `ob-encode-output/03` (F-003) | pending (after phase-3 release) | |
 | F4 | New attack channel: untrusted content inside the user's message (F-004, exposed by garak) | pending (after phase-3 release) | |
+| F5 | Classifier v2 (owner: release v1 now, v2 later). Score once on the fresh held-out set frozen in ADR 0007 (`datasets/v2-heldout/`, do not train), with v1 and ProtectAI in the same run; v1's held-out sets reported as "previously seen". Plan: (1) length balancing and chunked training: long benign windows, long SPML positives cut to their first window, long positives built from training-family injections, train on windows; (2) indirect and tool-channel examples (documents, tool outputs, web pages) from training families only, none in ADR 0007's four forms; (3) newly written hard benign items with trigger words (not NotInject, not the ADR 0007 set); (4) same calibration and threshold rules, 3 seeds, seed 1337 published; the data build drops `fresh.forbidden_keys()` | pending (after phase-4 release) | ADR 0007 |
 
 ## Still open with the owner (from earlier phases)
 
@@ -130,22 +131,25 @@ Last updated: 2026-11-24 (Phase 3 release).
 
 | # | Request | Status | Satisfied by |
 |---|---|---|---|
-| K1 | Classifier on licensed data only (licenses verified at the source) | in progress | datasets/README.md |
-| K2 | Held-out attack families and a held-out source in evaluation | pending | |
-| K3 | Calibrated threshold | pending | |
-| K4 | MLflow tracking; weights never committed | pending | |
-| K5 | Hugging Face Hub model card (upload is an owner action) | pending | |
-| K7 | Report token-length distribution of train/val/held-out sets and the share over 256 tokens | done | docs/classifier.md (train 10.1%, all held-out sets 0%) |
-| K8 | Sliding-window chunking at inference (256-token windows with overlap; flag if any chunk is over threshold); calibrate with the same chunking | in progress | |
-| K9 | Long-input evaluation: held-out injections at start / middle / end of long benign documents (1k-4k tokens); recall by position, with and without chunking, for both classifiers | pending | |
-| K10 | State the truncation limit and chunking behavior in the model card | pending | |
+| K1 | Classifier on licensed data only (licenses verified at the source) | done | `classifier/sources.yaml`, datasets/README.md |
+| K2 | Held-out attack families and a held-out source in evaluation | done | model card (Gandalf source; 9 Parry families; NotInject, lab sets) |
+| K3 | Calibrated threshold | done | temperature scaling + 1% validation FPR threshold, chunked (ADR 0006) |
+| K4 | MLflow tracking; weights never committed | done | MLflow SQLite store; `classifier/artifacts/` git-ignored |
+| K5 | Hugging Face Hub model card (upload is an owner action) | done | classifier/MODEL_CARD.md; `parry classifier publish` (upload needs HF_TOKEN) |
+| K7 | Report token-length distribution of train/val/held-out sets and the share over 256 tokens | done | docs/classifier.md, `classifier/results/phase4-lengths.json` (train 10.1%, all held-out sets 0%) |
+| K8 | Sliding-window chunking at inference (256-token windows with overlap; flag if any chunk is over threshold); calibrate with the same chunking | done | `parry/classifier/chunking.py`; `evaluate.py` calibrates on chunked validation scores |
+| K9 | Long-input evaluation: held-out injections at start / middle / end of long benign documents (1k-4k tokens); recall by position, with and without chunking, for both classifiers | done | `classifier/results/phase4-longinput*.json`; model card "Long inputs" |
+| K10 | State the truncation limit and chunking behavior in the model card | done | model card "Input length: truncation and chunking" |
 | K11 | If many training items exceed 256 tokens, tell the owner before deciding on retraining with chunked examples | done (asked) | 970 of 9,585 (10.1%); 945 are injections (length confound) |
-| K12 | FPR on injection-free long documents at 1,024 / 2,048 / 4,096 tokens for both classifiers; if it rises with length, try a length-aware rule (window-count-adjusted threshold, top-k window mean) as exploratory | in progress | `parry/classifier/longinput.py` |
+| K12 | FPR on injection-free long documents at 1,024 / 2,048 / 4,096 tokens for both classifiers; if it rises with length, try a length-aware rule (window-count-adjusted threshold, top-k window mean) as exploratory | done | model card: FPR 8/15/31% (v1), 5/13/16% (ProtectAI @0.5); exploratory rules reported |
 | K13 | Note that long benign documents are OASST prompts, which can contain instruction-like text | done | `longinput.py` results note; examples of the most-flagged benign documents kept |
-| K14 | Held-out metrics (recall, FPR, AUROC, long-input) for all three seeds as mean and min-max next to seed 1337; confirm seed selection used only validation loss, before any held-out scoring | in progress | |
+| K14 | Held-out metrics (recall, FPR, AUROC, long-input) for all three seeds as mean and min-max next to seed 1337; confirm seed selection used only validation loss, before any held-out scoring | done | model card: 3-seed mean [min-max] for held-out and long-input; "Seed selection" (1337 named in `bdff06a` before training; epoch by validation loss) |
 | K15 | Integration test of chunking against both real tokenizers, skipped when not cached; run locally before each commit that touches chunking | done (standing) | `tests/test_chunking_real.py`; pre-commit hook `chunking-real-tokenizers` |
-| K16 | Freeze v1: commit the evaluation fix, rerun for the per-family table and seed aggregates, publish v1 as-is ("strong in-distribution, poor generalization to unseen attack families") with ProtectAI alongside; no change to v1's data or threshold after held-out results | in progress (standing) | |
+| K16 | Freeze v1: commit the evaluation fix, rerun for the per-family table and seed aggregates, publish v1 as-is ("strong in-distribution, poor generalization to unseen attack families") with ProtectAI alongside; no change to v1's data or threshold after held-out results | done (standing) | `96111e0` (frozen results); model card |
 | K17 | No tuning against held-out: Gandalf, the held-out Parry families and NotInject are "seen" for any later model; a v2 needs a fresh held-out set, defined, frozen and logged in ADR 0007 before any v2 training; v2 on old sets labeled "previously seen" | standing | |
-| K18 | Bring the long-input results (recall by position, FPR by length, length-aware options, top flagged benign windows) before proposing v2; then propose v2: length balancing and chunked training, indirect and tool-channel examples from training families only, hard benign examples with trigger words | in progress | |
+| K18 | Bring the long-input results (recall by position, FPR by length, length-aware options, top flagged benign windows) before proposing v2; then propose v2: length balancing and chunked training, indirect and tool-channel examples from training families only, hard benign examples with trigger words | done | long-input results reported; v2 plan as F5 (ADR 0007) |
 | K19 | Until a classifier generalizes, ProtectAI stays the recommended `pi_classifier` defense in Parry's docs | done (standing) | model card, classifier README, docs/defenses.md |
+| K20 | Before release: ADR 0007 freezing v2's fresh held-out set (new families, fresh hard benign), the data created and committed, marked do-not-train; no v2 training data work | done | `134a60f` (`datasets/v2-heldout/`, sha256 `f80654a7...`) |
+| K21 | v1 model card: in-distribution, held-out (3 seeds, mean and min-max), per-family table, long-input results, length confound, intended use, limitations, ProtectAI as default; publish to the Hub with HF_TOKEN from `~/.parry/keys.env`, never printed | done; upload pending HF_TOKEN | classifier/MODEL_CARD.md, `parry classifier publish` |
+| K22 | v2 plan in the ledger follow-ups, referencing ADR 0007 | done | F5 |
 | K6 | Downloads approved by the owner: deepset/prompt-injections, SPML, OASST1 prompts file, Lakera gandalf, NotInject, microsoft/deberta-v3-small; PyPI mlflow, pyarrow, sentencepiece | approved | owner, 2026-11-24 |

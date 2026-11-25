@@ -6,6 +6,12 @@ numbers can be trusted. Every number here comes from files in
 `parry matrix`, `parry matrix-report` and `parry analyze`; how they were produced and every
 correction along the way is logged in [`deviations.md`](deviations.md).
 
+> **Recommended `pi_classifier`:** ProtectAI's `deberta-v3-base-prompt-injection-v2` (the
+> classifier measured here, and the default in `parry guard serve`). Parry's own Phase 4
+> classifier (v1) is strong in-distribution but generalizes poorly to unseen attack families
+> ([docs/classifier.md](classifier.md)); ProtectAI stays the recommendation until a Parry
+> classifier generalizes.
+
 ## Setup
 
 - **Apps:** the three deliberately vulnerable lab apps (vuln-rag, vuln-agent, vuln-mcp),

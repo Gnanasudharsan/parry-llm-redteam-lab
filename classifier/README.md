@@ -15,7 +15,9 @@ card for the Hugging Face Hub. Weights are never committed to this repo.
 | `data-manifest.json` | split sizes by source and label, sha256 of every split, removal counts |
 | `results/phase4-eval.json` | all seeds and the ProtectAI baseline on every set |
 | `results/phase4-longinput.json` | long-input evaluation (records `git_dirty: true`: the only tracked change during the run was the T-004 note in `docs/deviations.md`; the code that ran is `bfe674a`) |
-| `MODEL_CARD.md` | model card (Hugging Face Hub) |
+| `results/phase4-longinput-seed1338.json`, `-seed1339.json` | long-input evaluation of the other two seeds, v1 only (seed 1339 records `git_dirty: true`, T-005; the code that ran is `2ea7c09`) |
+| `results/phase4-lengths.json` | token-length distribution of every split |
+| `MODEL_CARD.md` | model card (Hugging Face Hub); tables rendered by `parry classifier card` |
 
-Reproduce: `parry classifier fetch`, `build`, `train`, `evaluate`, `longinput`
+Reproduce: `parry classifier fetch`, `build`, `train`, `evaluate`, `longinput`, `lengths`, `card`
 (see [ADR 0006](../docs/adr/0006-prompt-injection-classifier.md)).
