@@ -1,0 +1,81 @@
+{
+  "adr": "docs/adr/0007-v2-fresh-heldout.md",
+  "do_not_train": true,
+  "seed": 7007,
+  "n": 251,
+  "by_family_label": {
+    "invisible_chars:0": 15,
+    "invisible_chars:1": 40,
+    "markup_comment:0": 12,
+    "markup_comment:1": 40,
+    "pasted_content:0": 12,
+    "pasted_content:1": 40,
+    "translation_wrapped:0": 12,
+    "translation_wrapped:1": 40,
+    "trigger_words:0": 40
+  },
+  "by_form": {
+    "body0": 5,
+    "body1": 3,
+    "body2": 4,
+    "body3": 5,
+    "body4": 8,
+    "body5": 8,
+    "body6": 2,
+    "body7": 5,
+    "display_none": 5,
+    "english_payload": 21,
+    "foreign_language": 19,
+    "hidden_attr": 12,
+    "html_comment": 8,
+    "markdown_comment": 5,
+    "tags_after": 12,
+    "tags_before": 9,
+    "word_joiners": 8,
+    "zero_font": 10,
+    "zero_width_spaced": 11
+  },
+  "sha256": "f80654a71f6105905138397d09bb674e29aceeb855b3fef0bdf3a0c2d84fd9aa",
+  "leakage_vs_v1": {
+    "heldout_gandalf": {
+      "items": 1000,
+      "exact": 0,
+      "shingle8": 0
+    },
+    "heldout_lab_content": {
+      "items": 29,
+      "exact": 0,
+      "shingle8": 0
+    },
+    "heldout_notinject": {
+      "items": 339,
+      "exact": 0,
+      "shingle8": 0
+    },
+    "heldout_parry_attacks": {
+      "items": 84,
+      "exact": 0,
+      "shingle8": 0
+    },
+    "heldout_parry_benign": {
+      "items": 141,
+      "exact": 0,
+      "shingle8": 0
+    },
+    "test": {
+      "items": 1198,
+      "exact": 0,
+      "shingle8": 0
+    },
+    "train": {
+      "items": 9585,
+      "exact": 0,
+      "shingle8": 0
+    },
+    "val": {
+      "items": 1198,
+      "exact": 0,
+      "shingle8": 0
+    }
+  }
+}

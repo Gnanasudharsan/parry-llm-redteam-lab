@@ -967,6 +967,15 @@ def classifier_build() -> None:
     typer.echo(json.dumps({k: v["n"] for k, v in m["sets"].items()}, indent=2))
 
 
+@classifier_app.command("fresh-heldout")
+def classifier_fresh_heldout() -> None:
+    """Regenerate v2's frozen fresh held-out set (ADR 0007; do not train on it)."""
+    from parry.classifier.fresh import build
+
+    m = build()
+    typer.echo(json.dumps({"n": m["n"], "sha256": m["sha256"]}, indent=2))
+
+
 @classifier_app.command("train")
 def classifier_train(
     seed: list[int] = typer.Option([1337, 1338, 1339], help="Seeds (repeatable)."),
