@@ -259,6 +259,16 @@ D-004.)
   uses batches of 16, frees the GPU cache between models and logs every stage; run watches
   call a stall only when the GPU is below 5% and the process uses no CPU for two minutes.
 
+## Tooling note T-005: seed 1339 long-input run recorded a dirty tree (Phase 4)
+
+- **What happened:** the long-input runs for seeds 1338 and 1339 ran back to back at commit
+  `2ea7c09`. Seed 1338 started on a clean tree; seed 1339 started after the model card,
+  docs and three new CLI commands (`card`, `lengths`, `publish`) had been written but not
+  committed, so `phase4-longinput-seed1339.json` records `git_dirty: true`.
+- **Effect:** none of those edits touch the long-input code path (`longinput.py`,
+  `chunking.py`, `evaluate.py`, the `longinput` command); the code that ran is `2ea7c09`.
+  The results are kept and labeled.
+
 ## J-001: Leak judge v2 (Phase 3)
 
 - **Why:** owner-requested judge-artifact check. For cases that `redact_output` or

@@ -1,0 +1,77 @@
+{
+  "limit": 256,
+  "sets": {
+    "train": {
+      "n": 9585,
+      "median": 23,
+      "p95": 299,
+      "max": 864,
+      "over_limit": 970,
+      "over_limit_share": 0.1012,
+      "over_limit_injections": 945
+    },
+    "val": {
+      "n": 1198,
+      "median": 24,
+      "p95": 288,
+      "max": 650,
+      "over_limit": 114,
+      "over_limit_share": 0.0952,
+      "over_limit_injections": 111
+    },
+    "test": {
+      "n": 1198,
+      "median": 23,
+      "p95": 286,
+      "max": 439,
+      "over_limit": 107,
+      "over_limit_share": 0.0893,
+      "over_limit_injections": 105
+    },
+    "heldout_gandalf": {
+      "n": 1000,
+      "median": 11,
+      "p95": 33,
+      "max": 96,
+      "over_limit": 0,
+      "over_limit_share": 0.0,
+      "over_limit_injections": 0
+    },
+    "heldout_parry_attacks": {
+      "n": 84,
+      "median": 28,
+      "p95": 65,
+      "max": 115,
+      "over_limit": 0,
+      "over_limit_share": 0.0,
+      "over_limit_injections": 0
+    },
+    "heldout_notinject": {
+      "n": 339,
+      "median": 19,
+      "p95": 34,
+      "max": 55,
+      "over_limit": 0,
+      "over_limit_share": 0.0,
+      "over_limit_injections": 0
+    },
+    "heldout_parry_benign": {
+      "n": 141,
+      "median": 9,
+      "p95": 23,
+      "max": 29,
+      "over_limit": 0,
+      "over_limit_share": 0.0,
+      "over_limit_injections": 0
+    },
+    "heldout_lab_content": {
+      "n": 29,
+      "median": 45,
+      "p95": 81,
+      "max": 89,
+      "over_limit": 0,
+      "over_limit_share": 0.0,
+      "over_limit_injections": 0
+    }
+  }
+}
