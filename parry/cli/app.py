@@ -1067,6 +1067,7 @@ def classifier_evaluate(
 def classifier_longinput(
     seed: int = typer.Option(1337, help="Trained seed to evaluate (the published model)."),
     out: Path = typer.Option(Path("classifier/results/phase4-longinput.json")),
+    baseline: bool = typer.Option(True, help="Also score ProtectAI (seed-independent)."),
 ) -> None:
     """Held-out injections at the start, middle and end of long benign documents."""
     from parry.classifier.longinput import run
@@ -1074,7 +1075,7 @@ def classifier_longinput(
     from parry.engine import _git_commit, _git_dirty
 
     commit, dirty = _git_commit(), _git_dirty()  # captured at start, not at the end
-    res = run(ARTIFACTS / f"deberta-v3-small-seed{seed}", log=typer.echo)
+    res = run(ARTIFACTS / f"deberta-v3-small-seed{seed}", log=typer.echo, baseline=baseline)
     res |= {"git_commit": commit, "git_dirty": dirty, "seed": seed}
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(res, indent=2) + "\n")

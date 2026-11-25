@@ -131,12 +131,13 @@ def _free_gpu() -> None:
         torch.mps.empty_cache()
 
 
-def run(our_dir: Any, seed: int = SEED, log: Any = print) -> dict[str, Any]:
+def run(our_dir: Any, seed: int = SEED, log: Any = print, baseline: bool = True) -> dict[str, Any]:
     """Recall by length and position, and false positives on long benign documents, for our
     classifier (256-token windows; temperature and threshold fit on validation in the same
     mode) and ProtectAI (512-token windows; deployed threshold 0.5 and a threshold tuned on
     validation in the same mode). Each model scores every text once, window by window; the
-    truncated, chunked and exploratory rules all come from those window logits."""
+    truncated, chunked and exploratory rules all come from those window logits.
+    `baseline=False` skips ProtectAI (for the extra seeds: its numbers do not depend on them)."""
     from parry.classifier.chunking import window_logits
     from parry.classifier.evaluate import (
         TARGET_FPR,
@@ -164,11 +165,12 @@ def run(our_dir: Any, seed: int = SEED, log: Any = print) -> dict[str, Any]:
     oc = score(o_model, o_tok, texts, 256, 1, "ours / long-input cases")
     del o_model
     _free_gpu()
-    p_tok, p_model, p_pos = _load_protectai()
-    pv = score(p_model, p_tok, vtexts, 512, p_pos, "protectai / validation")
-    pc = score(p_model, p_tok, texts, 512, p_pos, "protectai / long-input cases")
-    del p_model
-    _free_gpu()
+    if baseline:
+        p_tok, p_model, p_pos = _load_protectai()
+        pv = score(p_model, p_tok, vtexts, 512, p_pos, "protectai / validation")
+        pc = score(p_model, p_tok, texts, 512, p_pos, "protectai / long-input cases")
+        del p_model
+        _free_gpu()
 
     flags: dict[str, list[bool]] = {}
     meta: dict[str, dict[str, Any]] = {}
@@ -187,19 +189,20 @@ def run(our_dir: Any, seed: int = SEED, log: Any = print) -> dict[str, Any]:
     ex = exploratory(vw, vlab, cw, TARGET_FPR)
     flags["parry/chunked+window_adjusted (exploratory)"] = ex["window_adjusted"]
     flags["parry/chunked+top2_mean (exploratory)"] = ex["top2_mean"]
-    for mode in ("truncated", "chunked"):
-        vp = [softmax_pos(_pick(ws, mode)) for ws in pv]
-        probs = [softmax_pos(_pick(ws, mode)) for ws in pc]
-        tuned = threshold_for_fpr(vp, vlab)
-        flags[f"protectai/{mode}@0.5"] = [p >= 0.5 for p in probs]
-        flags[f"protectai/{mode}@tuned"] = [p >= tuned for p in probs]
-        meta[f"protectai/{mode}@0.5"] = {"threshold": 0.5}
-        meta[f"protectai/{mode}@tuned"] = {"threshold": tuned}
-    pvw = [[softmax_pos(lg) for lg in ws] for ws in pv]
-    pcw = [[softmax_pos(lg) for lg in ws] for ws in pc]
-    pex = exploratory(pvw, vlab, pcw, TARGET_FPR)
-    flags["protectai/chunked+window_adjusted (exploratory)"] = pex["window_adjusted"]
-    flags["protectai/chunked+top2_mean (exploratory)"] = pex["top2_mean"]
+    if baseline:
+        for mode in ("truncated", "chunked"):
+            vp = [softmax_pos(_pick(ws, mode)) for ws in pv]
+            probs = [softmax_pos(_pick(ws, mode)) for ws in pc]
+            tuned = threshold_for_fpr(vp, vlab)
+            flags[f"protectai/{mode}@0.5"] = [p >= 0.5 for p in probs]
+            flags[f"protectai/{mode}@tuned"] = [p >= tuned for p in probs]
+            meta[f"protectai/{mode}@0.5"] = {"threshold": 0.5}
+            meta[f"protectai/{mode}@tuned"] = {"threshold": tuned}
+        pvw = [[softmax_pos(lg) for lg in ws] for ws in pv]
+        pcw = [[softmax_pos(lg) for lg in ws] for ws in pc]
+        pex = exploratory(pvw, vlab, pcw, TARGET_FPR)
+        flags["protectai/chunked+window_adjusted (exploratory)"] = pex["window_adjusted"]
+        flags["protectai/chunked+top2_mean (exploratory)"] = pex["top2_mean"]
 
     benign_idx = [i for i, k in enumerate(cases) if k["position"] == "none"]
     worst = sorted(benign_idx, key=lambda i: max(cw[i]), reverse=True)[:5]
