@@ -14,7 +14,7 @@ card for the Hugging Face Hub. Weights are never committed to this repo.
 | `sources.yaml` | pinned datasets and base model, with licenses |
 | `data-manifest.json` | split sizes by source and label, sha256 of every split, removal counts |
 | `results/phase4-eval.json` | all seeds and the ProtectAI baseline on every set |
-| `results/phase4-longinput.json` | long-input evaluation |
+| `results/phase4-longinput.json` | long-input evaluation (records `git_dirty: true`: the only tracked change during the run was the T-004 note in `docs/deviations.md`; the code that ran is `bfe674a`) |
 | `MODEL_CARD.md` | model card (Hugging Face Hub) |
 
 Reproduce: `parry classifier fetch`, `build`, `train`, `evaluate`, `longinput`

@@ -246,6 +246,19 @@ D-004.)
   `cmd | tail && next` chains; commit output is never silenced or cut (CLAUDE.md, requests
   ledger P15).
 
+## Tooling note T-004: long-input run stopped on a possibly wrong "hang" diagnosis (Phase 4)
+
+- **What happened:** the first long-input evaluation printed nothing for 34 minutes; its
+  process had used 25 s of CPU and its main thread was waiting in an MPS copy
+  (`MPSStream::copy`, `dispatch_sync`) with 5.6 GB of swap in use. It was stopped as hung.
+- **Correction:** a later run in the same state showed the GPU at 99% utilization
+  (`ioreg`, `IOAccelerator` "Device Utilization %"); a GPU-bound MPS run has that same CPU
+  and stack picture. GPU utilization was not checked for the first run, so it may have been
+  slow rather than hung. No result came from it.
+- **Changes:** the long-input run now scores each text once per model (half the GPU work),
+  uses batches of 16, frees the GPU cache between models and logs every stage; run watches
+  call a stall only when the GPU is below 5% and the process uses no CPU for two minutes.
+
 ## J-001: Leak judge v2 (Phase 3)
 
 - **Why:** owner-requested judge-artifact check. For cases that `redact_output` or
