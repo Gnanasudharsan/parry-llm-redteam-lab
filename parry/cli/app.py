@@ -976,6 +976,47 @@ def classifier_fresh_heldout() -> None:
     typer.echo(json.dumps({"n": m["n"], "sha256": m["sha256"]}, indent=2))
 
 
+@classifier_app.command("card")
+def classifier_card() -> None:
+    """Rewrite the model card's tables from the committed result files."""
+    from parry.classifier.card import CARD, write
+
+    write()
+    typer.echo(f"wrote {CARD}")
+
+
+@classifier_app.command("publish")
+def classifier_publish(
+    repo: str = typer.Option(..., help="Hugging Face repo id, e.g. <user>/<name>."),
+    stage_dir: Path = typer.Option(Path("classifier/artifacts/hub-v1")),
+    dry_run: bool = typer.Option(False, help="Stage only; do not upload."),
+) -> None:
+    """Upload v1 (seed 1337) with its model card; HF_TOKEN from ~/.parry/keys.env."""
+    from parry.classifier.publish import stage, upload
+    from parry.judges.hosted import load_key
+
+    folder = stage(stage_dir, repo)
+    typer.echo(f"staged {sorted(p.name for p in folder.iterdir())}")
+    if not dry_run:
+        typer.echo(upload(folder, repo, load_key("HF_TOKEN")))
+
+
+@classifier_app.command("lengths")
+def classifier_lengths(
+    out: Path = typer.Option(Path("classifier/results/phase4-lengths.json")),
+) -> None:
+    """Token-length distribution of every split (items that do not fit one 256-token window)."""
+    from transformers import AutoTokenizer
+
+    from parry.classifier.lengths import distribution
+    from parry.classifier.train import BASE, BASE_REVISION
+
+    res = distribution(AutoTokenizer.from_pretrained(BASE, revision=BASE_REVISION))
+    out.write_text(json.dumps(res, indent=2) + "\n")
+    for name, r in res["sets"].items():
+        typer.echo(f"{name:24} {r}")
+
+
 @classifier_app.command("train")
 def classifier_train(
     seed: list[int] = typer.Option([1337, 1338, 1339], help="Seeds (repeatable)."),
