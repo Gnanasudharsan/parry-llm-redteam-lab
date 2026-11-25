@@ -9,7 +9,7 @@ intervals, tests guardrails, and reports results mapped to the
 [MITRE ATLAS](https://atlas.mitre.org/). It ships deliberately vulnerable target apps for
 learning and benchmarking, and a trained prompt-injection classifier.
 
-> **Status: Phase 3 (defense evaluation) complete.** Every result below is produced by
+> **Status: Phase 4 (prompt-injection classifier) complete.** Every result below is produced by
 > code in this repo at a recorded commit, with fixed seeds and 95% Wilson intervals
 > ([docs/metrics.md](docs/metrics.md)); every correction is logged in
 > [docs/deviations.md](docs/deviations.md). Judge accuracy is unmeasured: there are no human
@@ -43,6 +43,8 @@ fake secrets, and a local mock exfiltration endpoint, never real harmful content
 | Defense layers: Llama Guard 3, DeBERTa prompt-injection classifier (`parry guard serve`), format-aware output validator; runtime reconfiguration of lab apps | done |
 | `parry matrix`, `matrix-report` (Pareto chart), `matrix-compare`, `analyze` (paired McNemar + Holm, judge-rule sensitivity, FP controls, baseline exposure, artifact check) | done |
 | `parry baseline garak` (NVIDIA garak behind the authorization gate, offline payload preflight) | done |
+| Prompt-injection classifier v1: licensed data, 3 seeds, calibrated threshold, chunked inference, held-out and long-input evaluation, model card (`parry classifier ...`) | done; generalizes poorly, ProtectAI stays the recommended `pi_classifier` |
+| v2's fresh held-out set, frozen before any v2 training ([ADR 0007](docs/adr/0007-v2-fresh-heldout.md)) | done; do not train |
 
 ### Attack results: vulnerable vs hardened lab targets
 
@@ -117,6 +119,32 @@ against no defense, Holm-corrected within each app; only supported differences a
   [docs/defenses.md](docs/defenses.md).
 
 ![Defense configurations: attack success vs benign utility](evals/results/phase3-matrix/pareto.svg)
+
+### Phase 4: Parry's own prompt-injection classifier ([docs/classifier.md](docs/classifier.md))
+
+DeBERTa-v3-small fine-tuned on licensed data (deepset, SPML, OASST1), temperature-calibrated,
+threshold at 1% validation false positives, 256-token windows with chunked inference. Seed
+1337 is the published model; the other two seeds show the spread. Full tables, long inputs
+and limitations: [classifier/MODEL_CARD.md](classifier/MODEL_CARD.md).
+
+| set | v1 seed 1337 | v1, 3 seeds: mean [min-max] | ProtectAI v2 @0.5 |
+|---|---|---|---|
+| Test split (in-distribution): detection / false positives | 97.7% / 1.3% | 97.2% / 1.1% | 94.8% / 4.2% |
+| Gandalf (held-out source): detection | 85.8% | 83.6% [81.8-85.8] | 100.0% |
+| Parry attacks (held-out families): detection | 13.1% | 10.7% [5.9-13.1] | 51.2% |
+| NotInject (benign, trigger words): false positives | 32.5% | 30.6% [28.3-32.5] | 43.4% |
+
+- **Strong in-distribution, poor generalization to unseen attack families.** ProtectAI stays
+  Parry's recommended `pi_classifier` defense.
+- **Long inputs (seed 1337; all seeds in the model card):** truncated to 256 tokens, v1 misses injections in the middle or at the end
+  of long documents (0-2% recall); chunking restores part of that (16-38%) but its false
+  positives rise with length (8% / 15% / 31% at 1k / 2k / 4k tokens). Length-aware rules
+  traded recall for false positives (exploratory).
+- **Length confound:** 945 of the 970 training items longer than 256 tokens are injections.
+- **v2** is a follow-up. Its fresh held-out set (four new attack families, format-matched
+  hard benign) is frozen and committed first, marked do-not-train
+  ([ADR 0007](docs/adr/0007-v2-fresh-heldout.md)); v1's held-out sets count as previously
+  seen.
 
 ### Judges
 

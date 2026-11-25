@@ -61,7 +61,7 @@ latency/cost overhead · judge accuracy vs human labels · OWASP/ATLAS coverage.
 target · 2 ✅ Attack engine, families (direct/indirect injection, MCP tool poisoning, prompt extraction,
 data leakage, excessive agency, multi-turn, encodings, output handling), judges + 200-label judge set,
 `parry scan`/`parry report`, mapping · 3 ✅ Defense matrix, Pareto chart, baseline scanner comparison ·
-4 Classifier (licensed data, held-out families, calibrated threshold, HF Hub model card) ·
+4 ✅ Classifier (licensed data, held-out families, calibrated threshold, HF Hub model card) ·
 5 GitHub Action (SARIF, PR comment, ASR threshold) + demo repo · 6 Case studies on owner's own apps
 (Ramp, DecisionTrace) with explicit confirmation per target · 7 Docs site (tokens: ink #15191F,
 slate #525C6B, paper #F7F8FA, surface #FFFFFF, line #DCE0E6, accent #1F4FD1; severity critical
@@ -70,6 +70,9 @@ Inter Tight + JetBrains Mono; WCAG 2.2 AA; no gradients, no generic card grids, 
 PyPI, blog post, v1.0.0 release.
 
 ## Notes
+- Phase 4: v1 classifier frozen (classifier/MODEL_CARD.md, docs/classifier.md; tables from
+  `parry classifier card`). `datasets/v2-heldout/` is DO NOT TRAIN (ADR 0007, frozen sha256);
+  v1's held-out sets are "previously seen" for v2. ProtectAI stays the recommended pi_classifier.
 - Phase 3 results: `evals/results/phase3-matrix` (code commit per cell in SOURCES.json);
   write-up docs/defenses.md; every correction in docs/deviations.md. No commits while a
   matrix runs (commit is pinned at process start anyway). Judge accuracy unmeasured.
